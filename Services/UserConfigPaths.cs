@@ -41,4 +41,23 @@ public static class UserConfigPaths
 
     public static string DoomEternal(string _) =>
         SavedGames("id Software", "DOOMEternal", "base", "DOOMEternalConfig.local");
+
+    /// <summary>
+    /// Rainbow Six Siege keeps settings under Documents/My Games/Rainbow Six - Siege/&lt;hash&gt;/.
+    /// The hash folder is per Ubisoft account, so we pick the first one that has a GameSettings.ini.
+    /// </summary>
+    public static string RainbowSixSiege(string _)
+    {
+        var baseDir = Documents("My Games", "Rainbow Six - Siege");
+        var placeholder = Path.Combine(baseDir, "<account-id>", "GameSettings.ini");
+        if (!Directory.Exists(baseDir)) return placeholder;
+        try
+        {
+            var hit = Directory.EnumerateDirectories(baseDir)
+                .Select(d => Path.Combine(d, "GameSettings.ini"))
+                .FirstOrDefault(File.Exists);
+            return hit ?? placeholder;
+        }
+        catch { return placeholder; }
+    }
 }

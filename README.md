@@ -50,22 +50,30 @@ A one-time `*.s2a-backup` copy is made before any config file is edited, so chan
 
 | Game(s) | Writer | Config target |
 |---------|--------|---------------|
-| CS2, TF2, CS:S, HL2, L4D2, Portal 2, Garry's Mod, DoD:S | `SourceCfgApplier` | `…/<mod>/cfg/autoexec.cfg` → `sensitivity "x"` |
-| Half-Life 1, CS 1.6, DoD, TFC, Opposing Force (GoldSrc) | `SourceCfgApplier` (mod root) | `…/<mod>/autoexec.cfg` → `sensitivity "x"` |
-| Apex Legends | `CvarApplier` | `Saved Games/Respawn/Apex/local/settings.cfg` → `mouse_sensitivity` |
-| Titanfall 2 | `CvarApplier` | `Documents/Respawn/Titanfall2/local/settings.cfg` → `mouse_sensitivity` |
-| Quake Champions | `CvarApplier` | `…/id Software/Quake Champions/client/config/input.cfg` → `seta sensitivity` |
-| DOOM Eternal | `CvarApplier` | `Saved Games/id Software/DOOMEternal/base/DOOMEternalConfig.local` → `seta sensitivity` |
+| Engine / games | Writer | Config target |
+|---|---|---|
+| **Source / Source 2** — CS2, TF2, CS:S, HL2, HL:Source, HL2:DM, L4D2, Portal, Portal 2, Garry's Mod, DoD:S, Deadlock, Black Mesa, Insurgency, Day of Infamy | `SourceCfgApplier` | `…/<mod>/cfg/autoexec.cfg` → `sensitivity "x"` |
+| **GoldSrc** — Half-Life, CS 1.6, Condition Zero, DoD, TFC, Opposing Force, Sven Co-op | `SourceCfgApplier` (mod root) | `…/<mod>/autoexec.cfg` → `sensitivity "x"` |
+| **Apex Legends** | `CvarApplier` | `Saved Games/Respawn/Apex/local/settings.cfg` → `mouse_sensitivity` |
+| **Titanfall 2** | `CvarApplier` | `Documents/Respawn/Titanfall2/local/settings.cfg` → `mouse_sensitivity` |
+| **Quake Champions** | `CvarApplier` | `…/id Software/Quake Champions/client/config/input.cfg` → `seta sensitivity` |
+| **DOOM Eternal** | `CvarApplier` | `Saved Games/id Software/DOOMEternal/base/DOOMEternalConfig.local` → `seta sensitivity` |
+| **Rust** (Unity, yaw 0.1125) | `CvarApplier` | `<install>/cfg/client.cfg` → `input.sensitivity` |
+| **Rainbow Six Siege** (yaw 0.00572958) | `R6SiegeApplier` | `Documents/My Games/Rainbow Six - Siege/<id>/GameSettings.ini` `[INPUT]` |
+
+Each game carries its own **yaw constant** so the converted value is correct for that engine, not just
+the file write. Rainbow Six is special: its sensitivity is `MouseYawSensitivity × (MultiplierUnit/0.02)`,
+so the writer pins Yaw/Pitch to `50` and carries the exact value in the float `MouseSensitivityMultiplierUnit`.
 
 Source/GoldSrc autoexec is created if missing (it runs on launch, overriding the managed config). The
-external cvar writers are deliberately conservative: they **only edit a config file that already
-exists** (launch the game once first), replace the cvar in place when present, and back it up first —
-they never fabricate a file in a guessed location.
+external writers are deliberately conservative: they **only edit a config file that already exists**
+(launch the game once first), replace the value in place when present, and back it up first
+(`*.s2a-backup`) — they never fabricate a file in a guessed location.
 
 Engines whose sensitivity isn't a plain, documented text value are convert-only by default:
-**Valorant** (settings are server-synced), **Overwatch 2** (opaque INI value scaling), and
-**Call of Duty: MW** (settings keyed by numeric IDs). For these, enabling experimental apply exports
-the value instead of risking config corruption.
+**Valorant** (settings are cloud-synced and overwritten on launch), **Overwatch 2** (no confirmable
+local key / opaque scaling), and **Call of Duty: MW** (settings keyed by opaque numeric IDs). For
+these, enabling experimental apply exports the value instead of risking config corruption.
 
 ### "Allow experimental auto-apply" (opt-in)
 

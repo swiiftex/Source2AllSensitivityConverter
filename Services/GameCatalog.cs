@@ -232,11 +232,21 @@ public static class GameCatalog
             },
             new GameDefinition
             {
-                Name = "Call of Duty: Modern Warfare", Engine = Engine.CallOfDuty,
-                YawConstant = 0.0066, ApproximateYaw = true,
+                // MW2019 and newer ("new" IW/Treyarch engine): CS 1.0 == 3.333333, so yaw = 0.0066.
+                Name = "Call of Duty (Modern Warfare 2019 and newer)", Engine = Engine.CallOfDuty,
+                YawConstant = srcYaw / 3.333333,
                 SteamAppId = 1938090,
-                InstallDirHints = ["call of duty modern warfare"],
+                InstallDirHints = ["call of duty modern warfare", "call of duty hq", "call of duty"],
                 MarkerFiles = ["ModernWarfare.exe"],
+                Applier = null,
+            },
+            new GameDefinition
+            {
+                // CoD4 through Advanced Warfare (early IW engine, Quake-derived): CS 1.0 == 1, yaw 0.022.
+                Name = "Call of Duty 4: Modern Warfare (early IW engine)", Engine = Engine.CallOfDuty,
+                YawConstant = srcYaw / 1.0,
+                SteamAppId = 7940, InstallDirHints = ["call of duty 4"],
+                MarkerFiles = ["iw3mp.exe", "iw3sp.exe"],
                 Applier = null,
             },
 
@@ -258,7 +268,8 @@ public static class GameCatalog
             },
             new GameDefinition
             {
-                Name = "The Finals", Engine = Engine.Unreal, YawConstant = 0.0066, ApproximateYaw = true,
+                // CS 1.0 == 22 in The Finals, so yaw = 0.001 (user-verified).
+                Name = "The Finals", Engine = Engine.Unreal, YawConstant = srcYaw / 22.0,
                 SteamAppId = 2073850, InstallDirHints = ["the finals", "discovery"],
                 MarkerFiles = ["Discovery.exe", "Discovery"],
                 Applier = null,
@@ -276,6 +287,66 @@ public static class GameCatalog
                 SteamAppId = 671860, InstallDirHints = ["battlebit"],
                 MarkerFiles = ["BattleBit.exe"],
                 Applier = null,
+            },
+
+            // ---- User-verified yaw constants (CS 1.0 == the value noted) ----
+            new GameDefinition
+            {
+                // CS 1.0 == 0.15. UE4 per-axis AxisConfig in Input.ini -> auto-writable.
+                Name = "Mordhau", Engine = Engine.Unreal, YawConstant = srcYaw / 0.15,
+                SteamAppId = 629760, InstallDirHints = ["mordhau"],
+                MarkerFiles = ["Mordhau.exe", "Mordhau"],
+                Applier = new UnrealAxisConfigApplier(
+                    "AppData/Local/Mordhau/Saved/Config/WindowsClient/Input.ini  (MouseX/MouseY Sensitivity)",
+                    UserConfigPaths.Mordhau),
+            },
+            new GameDefinition
+            {
+                // CS 1.0 == 0.010214.
+                Name = "Chivalry 2", Engine = Engine.Unreal, YawConstant = srcYaw / 0.010214,
+                SteamAppId = 1824220, InstallDirHints = ["chivalry 2", "chivalry2"],
+                MarkerFiles = ["TBL/Binaries/Win64/Chivalry2-Win64-Shipping.exe"],
+                Applier = null,
+            },
+            new GameDefinition
+            {
+                // CS 1.0 == 3.432838.
+                Name = "Chivalry: Medieval Warfare", Engine = Engine.Unreal, YawConstant = srcYaw / 3.432838,
+                SteamAppId = 219640, InstallDirHints = ["chivalry medieval warfare"],
+                MarkerFiles = ["Binaries/Win64/UDK.exe", "Binaries/Win32/UDK.exe"],
+                Applier = null,
+            },
+            new GameDefinition
+            {
+                // CS 1.0 == 0.125714.
+                Name = "Ready or Not", Engine = Engine.Unreal, YawConstant = srcYaw / 0.125714,
+                SteamAppId = 1144200, InstallDirHints = ["ready or not", "readyornot"],
+                MarkerFiles = ["ReadyOrNot/Binaries/Win64/ReadyOrNot-Win64-Shipping.exe"],
+                Applier = null,
+            },
+            new GameDefinition
+            {
+                // CS 1.0 == 16.
+                Name = "ARC Raiders", Engine = Engine.Unreal, YawConstant = srcYaw / 16.0,
+                InstallDirHints = ["arc raiders", "arcraiders"],
+                MarkerFiles = ["ARC-Raiders.exe"],
+                Applier = null,
+            },
+            new GameDefinition
+            {
+                // CS 1.0 == 4.
+                Name = "Rising Storm 2: Vietnam", Engine = Engine.Unreal, YawConstant = srcYaw / 4.0,
+                SteamAppId = 418460, InstallDirHints = ["rising storm 2"],
+                MarkerFiles = ["ROGame.exe", "Binaries/Win64/ROGame.exe"],
+                Applier = null,
+            },
+            new GameDefinition
+            {
+                // CS 1.0 == 0.10613666 (the options.txt value). Auto-writable text config.
+                Name = "Minecraft", Engine = Engine.Other, YawConstant = srcYaw / 0.10613666,
+                InstallDirHints = ["minecraft"],
+                MarkerFiles = [],
+                Applier = new MinecraftOptionsApplier(UserConfigPaths.MinecraftOptions),
             },
 
             // ---- Known engine, no reliable linear conversion (listed, greyed, no output) ----

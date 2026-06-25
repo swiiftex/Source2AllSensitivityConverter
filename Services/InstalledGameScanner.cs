@@ -20,6 +20,7 @@ public sealed class InstalledGameScanner
         new SteamScanner(),
         new EpicScanner(),
         new GogScanner(),
+        new MinecraftScanner(),
     ];
 
     public IReadOnlyList<Store> AvailableStores =>

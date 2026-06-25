@@ -17,6 +17,7 @@ public enum Engine
     CallOfDuty,  // IW / Treyarch engines
     Riot,        // Valorant (custom UE fork, but its own sens model)
     Overwatch,   // Blizzard's custom engine
+    Other,       // known game, engine outside the categories above (e.g. Minecraft / LWJGL)
 }
 
 /// <summary>
@@ -32,4 +33,5 @@ public enum Store
     Origin,
     BattleNet,
     Riot,
+    Other,       // standalone / launcher-less installs (e.g. Minecraft)
 }

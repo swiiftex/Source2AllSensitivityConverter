@@ -56,8 +56,6 @@ Engine detection (for catalog misses) looks for hallmark files: `engine2.dll`/`g
 
 A one-time `*.s2a-backup` copy is made before any config file is edited, so changes are reversible.
 
-| Game(s) | Writer | Config target |
-|---------|--------|---------------|
 | Engine / games | Writer | Config target |
 |---|---|---|
 | **Source / Source 2** — CS2, TF2, CS:S, HL2, HL:Source, HL2:DM, L4D2, Portal, Portal 2, Garry's Mod, DoD:S, Deadlock, Black Mesa, Insurgency, Day of Infamy | `SourceCfgApplier` | `…/<mod>/cfg/autoexec.cfg` → `sensitivity "x"` |
@@ -66,12 +64,20 @@ A one-time `*.s2a-backup` copy is made before any config file is edited, so chan
 | **Titanfall 2** | `CvarApplier` | `Documents/Respawn/Titanfall2/local/settings.cfg` → `mouse_sensitivity` |
 | **Quake Champions** | `CvarApplier` | `…/id Software/Quake Champions/client/config/input.cfg` → `seta sensitivity` |
 | **DOOM Eternal** | `CvarApplier` | `Saved Games/id Software/DOOMEternal/base/DOOMEternalConfig.local` → `seta sensitivity` |
-| **Rust** (Unity, yaw 0.1125) | `CvarApplier` | `<install>/cfg/client.cfg` → `input.sensitivity` |
-| **Rainbow Six Siege** (yaw 0.00572958) | `R6SiegeApplier` | `Documents/My Games/Rainbow Six - Siege/<id>/GameSettings.ini` `[INPUT]` |
+| **Rust** (Unity) | `CvarApplier` | `<install>/cfg/client.cfg` → `input.sensitivity` |
+| **Rainbow Six Siege** | `R6SiegeApplier` | `Documents/My Games/Rainbow Six - Siege/<id>/GameSettings.ini` `[INPUT]` |
+| **Mordhau** (UE4) | `UnrealAxisConfigApplier` | `AppData/Local/Mordhau/Saved/Config/WindowsClient/Input.ini` → MouseX/MouseY `Sensitivity` |
+| **Minecraft** (Java) | `MinecraftOptionsApplier` | `%APPDATA%/.minecraft/options.txt` → `mouseSensitivity` |
 
 Each game carries its own **yaw constant** so the converted value is correct for that engine, not just
 the file write. Rainbow Six is special: its sensitivity is `MouseYawSensitivity × (MultiplierUnit/0.02)`,
 so the writer pins Yaw/Pitch to `50` and carries the exact value in the float `MouseSensitivityMultiplierUnit`.
+Minecraft (which no store launcher reports) is detected directly from `%APPDATA%/.minecraft`.
+
+Convert-only games with verified yaw (configs cloud-synced or format unconfirmed, so no auto-write):
+**Fortnite, Chivalry 2, Chivalry: Medieval Warfare, Ready or Not, ARC Raiders, The Finals,
+Rising Storm 2: Vietnam, Call of Duty (both engine eras)**. A few others use commonly-cited
+*approximate* yaws (Marvel Rivals, Halo Infinite, BattleBit) and are shown with a `≈`.
 
 Source/GoldSrc autoexec is created if missing (it runs on launch, overriding the managed config). The
 external writers are deliberately conservative: they **only edit a config file that already exists**

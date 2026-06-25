@@ -60,9 +60,16 @@ public sealed class GameRowViewModel(DetectedGame game) : ObservableObject
         }
     }
 
-    public string OutputText => Game.CanConvert
-        ? ConvertedSensitivity?.ToString("0.######", CultureInfo.InvariantCulture) ?? "—"
-        : "n/a";
+    public string OutputText
+    {
+        get
+        {
+            if (!Game.CanConvert) return "n/a";
+            if (ConvertedSensitivity is not { } v) return "—";
+            var s = v.ToString("0.######", CultureInfo.InvariantCulture);
+            return Game.Definition!.ApproximateYaw ? $"≈ {s}" : s;
+        }
+    }
 
     /// <summary>Status shown in the right-hand column.</summary>
     public string StatusText => Game switch
@@ -88,7 +95,11 @@ public sealed class GameRowViewModel(DetectedGame game) : ObservableObject
             };
 
             if (Game.CanConvert)
+            {
                 lines.Add($"Output sensitivity: {OutputText}");
+                if (Game.Definition!.ApproximateYaw)
+                    lines.Add("(Conversion factor for this game is a close approximation.)");
+            }
             else if (Game.Definition is not null)
                 lines.Add("No reliable sensitivity conversion is known for this game's input model.");
             else
@@ -107,11 +118,14 @@ public sealed class GameRowViewModel(DetectedGame game) : ObservableObject
         }
     }
 
-    /// <summary>Recompute the converted value for a new source sensitivity.</summary>
-    public void Recompute(double sourceSensitivity)
+    /// <summary>
+    /// Recompute this game's sensitivity from a target-independent counts/360 "feel".
+    /// Null clears the value (invalid input or no conversion for this game).
+    /// </summary>
+    public void Recompute(double? countsPer360)
     {
-        ConvertedSensitivity = Game.Definition is { } def
-            ? SensitivityConverter.ConvertFromSource(sourceSensitivity, def)
+        ConvertedSensitivity = countsPer360 is { } c && Game.Definition?.YawConstant is { } yaw
+            ? SensitivityConverter.SensitivityFromCounts(c, yaw)
             : null;
     }
 }

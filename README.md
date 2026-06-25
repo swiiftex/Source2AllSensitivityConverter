@@ -1,14 +1,17 @@
 # Source → All Sensitivity Converter
 
-A Windows desktop app (.NET 9 / WPF) that takes a **Source-engine mouse sensitivity** and converts
-it into the equivalent in-game sensitivity for every game it finds installed on your machine —
-scanning Steam, Epic and GOG libraries, detecting each game's engine, and (where supported) writing
-the converted value directly into the game's config.
+A Windows desktop app (.NET 9 / WPF) that takes a mouse sensitivity **from any supported game** (or a
+raw **cm/360 + DPI**) and converts it into the equivalent in-game sensitivity for every game it finds
+installed on your machine — scanning Steam, Epic and GOG libraries, detecting each game's engine, and
+(where supported) writing the converted value directly into the game's config.
 
 ## What it does
 
-1. **Enter a Source sensitivity** (e.g. your CS2 / TF2 value), or click **Detect from game** to read
-   it automatically from an installed Source game's config.
+1. Choose your input:
+   - **Game sensitivity** — pick the game your sensitivity is from in the dropdown (it shows the
+     engine next to each name) and type the value, or click **Detect from game** to read it from an
+     installed game's config; **or**
+   - **cm/360 + DPI** — type the physical distance for a 360° turn and your mouse DPI.
 2. **Scan for games** — reads the configs/registry of each store to find installed games and their
    install paths.
 3. Each game is matched against a built-in catalog (engine + sensitivity model). For games not in the
@@ -21,16 +24,21 @@ the converted value directly into the game's config.
 ## How the conversion works
 
 It uses the **360-distance method**: the physical distance to turn a full 360° is held constant, so the
-feel is identical across games at the same mouse DPI. Each engine has a *yaw* constant (degrees turned
-per mouse count at sensitivity 1.0); Source's is `0.022`. The conversion is then:
+feel is identical across games at the same mouse DPI. Every input is reduced to a single, engine-neutral
+**counts/360** figure, and each target game's sensitivity is derived back from it:
 
 ```
-targetSensitivity = sourceSensitivity × (sourceYaw / targetYaw)
+counts/360  =  360 / (sensitivity × sourceYaw)        // from a game sensitivity
+counts/360  =  cm/360 × DPI / 2.54                     // from a cm/360 + DPI
+targetSensitivity  =  360 / (counts/360 × targetYaw)   // for each target game
 ```
 
-Exact yaw constants are used for the well-established cases (Source `0.022`, Valorant `0.07`,
-Overwatch `0.0066`). Games whose input model isn't a simple linear yaw (e.g. Fortnite, PUBG) are listed
-with their engine but marked *No conversion*.
+Each game carries a *yaw* constant (degrees per count at sensitivity 1.0). Exact values are used for
+the well-established cases (Source `0.022`, Valorant `0.07`, Overwatch `0.0066`, R6 `0.00572958`,
+Fortnite `0.005555`, Rust `0.1125`); a few are commonly-cited approximations (Call of Duty, Marvel
+Rivals, The Finals, Halo Infinite, BattleBit) and are shown with a `≈` and an "approximate" note.
+Games whose input model isn't a simple linear yaw (e.g. **PUBG**, whose value is FOV/scope-dependent)
+are listed with their engine but marked *No conversion*.
 
 ## Stores & detection
 

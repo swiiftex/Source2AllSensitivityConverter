@@ -9,8 +9,14 @@
     </Window.DataContext>
 
     <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
         <Style TargetType="TextBlock">
             <Setter Property="Foreground" Value="#E6E6E6"/>
+        </Style>
+        <Style TargetType="RadioButton">
+            <Setter Property="Foreground" Value="#E6E6E6"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,0,16,0"/>
         </Style>
         <Style TargetType="Button">
             <Setter Property="Padding" Value="12,6"/>
@@ -27,16 +33,43 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Source sensitivity input -->
+        <!-- Input panel: a game's sensitivity, or a cm/360 + DPI -->
         <Border Grid.Row="0" Background="#2B2D31" CornerRadius="6" Padding="12" Margin="0,0,0,10">
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <TextBlock Text="Source engine sensitivity:" VerticalAlignment="Center" FontWeight="SemiBold"/>
-                <TextBox Width="90" Margin="10,0,0,0" VerticalAlignment="Center"
-                         FontSize="14"
-                         Text="{Binding SourceSensitivityText, UpdateSourceTrigger=PropertyChanged}"/>
-                <Button Content="Detect from game" Margin="10,0,0,0" Command="{Binding DetectCommand}"/>
-                <TextBlock VerticalAlignment="Center" Foreground="#9AA0A6"
-                           Text="{Binding SourceYawDisplay, StringFormat='(reference m_yaw = {0})'}"/>
+            <StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                    <TextBlock Text="Input by:" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,12,0"/>
+                    <RadioButton Content="Game sensitivity" GroupName="mode"
+                                 IsChecked="{Binding InputBySensitivity, Mode=TwoWay}"/>
+                    <RadioButton Content="cm/360 + DPI" GroupName="mode"
+                                 IsChecked="{Binding InputByCm360, Mode=TwoWay}"/>
+                </StackPanel>
+
+                <!-- Game sensitivity input -->
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
+                            Visibility="{Binding InputBySensitivity, Converter={StaticResource BoolToVis}}">
+                    <TextBlock Text="Input game:" VerticalAlignment="Center"/>
+                    <ComboBox Width="220" Margin="8,0,0,0" VerticalAlignment="Center"
+                              ItemsSource="{Binding SourceOptions}"
+                              SelectedItem="{Binding SelectedSource}"
+                              DisplayMemberPath="Display"/>
+                    <TextBlock Text="Sensitivity:" VerticalAlignment="Center" Margin="14,0,0,0"/>
+                    <TextBox Width="80" Margin="8,0,0,0" VerticalAlignment="Center" FontSize="14"
+                             Text="{Binding SourceSensitivityText, UpdateSourceTrigger=PropertyChanged}"/>
+                    <Button Content="Detect from game" Margin="14,0,0,0" Command="{Binding DetectCommand}"/>
+                </StackPanel>
+
+                <!-- cm/360 + DPI input -->
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
+                            Visibility="{Binding InputByCm360, Converter={StaticResource BoolToVis}}">
+                    <TextBlock Text="cm/360:" VerticalAlignment="Center"/>
+                    <TextBox Width="80" Margin="8,0,0,0" VerticalAlignment="Center" FontSize="14"
+                             Text="{Binding Cm360Text, UpdateSourceTrigger=PropertyChanged}"/>
+                    <TextBlock Text="DPI:" VerticalAlignment="Center" Margin="14,0,0,0"/>
+                    <TextBox Width="80" Margin="8,0,0,0" VerticalAlignment="Center" FontSize="14"
+                             Text="{Binding DpiText, UpdateSourceTrigger=PropertyChanged}"/>
+                </StackPanel>
+
+                <TextBlock Text="{Binding InputSummary}" Foreground="#9AA0A6" Margin="0,8,0,0"/>
             </StackPanel>
         </Border>
 

@@ -233,23 +233,56 @@ public static class GameCatalog
             new GameDefinition
             {
                 Name = "Call of Duty: Modern Warfare", Engine = Engine.CallOfDuty,
-                YawConstant = 0.0066 /* approximate */,
+                YawConstant = 0.0066, ApproximateYaw = true,
                 SteamAppId = 1938090,
                 InstallDirHints = ["call of duty modern warfare"],
                 MarkerFiles = ["ModernWarfare.exe"],
                 Applier = null,
             },
 
-            // ---- Known engine, no reliable linear conversion (listed, greyed, no output) ----
+            // ---- Modern shooters: convertible for the calculator (cloud/unverified config -> no write) ----
             new GameDefinition
             {
-                Name = "Fortnite", Engine = Engine.Unreal, YawConstant = null,
+                // Fortnite sensitivity is a percentage; yaw is 0.005555 per 1%. Settings are cloud-synced.
+                Name = "Fortnite", Engine = Engine.Unreal, YawConstant = 0.005555,
                 InstallDirHints = ["fortnite"],
                 MarkerFiles = ["FortniteGame/Binaries/Win64/FortniteClient-Win64-Shipping.exe"],
                 Applier = null,
             },
             new GameDefinition
             {
+                Name = "Marvel Rivals", Engine = Engine.Unreal, YawConstant = 0.0066, ApproximateYaw = true,
+                SteamAppId = 2767030, InstallDirHints = ["marvel rivals", "marvelrivals"],
+                MarkerFiles = ["MarvelRivals_Launcher.exe", "MarvelGame"],
+                Applier = null,
+            },
+            new GameDefinition
+            {
+                Name = "The Finals", Engine = Engine.Unreal, YawConstant = 0.0066, ApproximateYaw = true,
+                SteamAppId = 2073850, InstallDirHints = ["the finals", "discovery"],
+                MarkerFiles = ["Discovery.exe", "Discovery"],
+                Applier = null,
+            },
+            new GameDefinition
+            {
+                Name = "Halo Infinite", Engine = Engine.Unreal, YawConstant = 0.022, ApproximateYaw = true,
+                SteamAppId = 1240440, InstallDirHints = ["halo infinite"],
+                MarkerFiles = ["HaloInfinite.exe"],
+                Applier = null,
+            },
+            new GameDefinition
+            {
+                Name = "BattleBit Remastered", Engine = Engine.Unity, YawConstant = 0.0005, ApproximateYaw = true,
+                SteamAppId = 671860, InstallDirHints = ["battlebit"],
+                MarkerFiles = ["BattleBit.exe"],
+                Applier = null,
+            },
+
+            // ---- Known engine, no reliable linear conversion (listed, greyed, no output) ----
+            new GameDefinition
+            {
+                // PUBG's sensitivity is FOV/scope-dependent (LastConvertedMouseSensitivity); public
+                // yaw values disagree by ~10x, so we list it but don't risk a wrong conversion.
                 Name = "PUBG: BATTLEGROUNDS", Engine = Engine.Unreal, YawConstant = null,
                 SteamAppId = 578080, InstallDirHints = ["pubg"],
                 MarkerFiles = ["TslGame/Binaries/Win64/TslGame.exe"],

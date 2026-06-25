@@ -102,6 +102,13 @@ dotnet run
 Requires the .NET 9 SDK on Windows. The app only reads store configs and writes the config files of
 games you explicitly select.
 
+## Releases (CI)
+
+`.github/workflows/release.yml` runs on every push to `main`: it publishes a **self-contained,
+single-file** `win-x64` build (no .NET install needed to run it) and attaches the `.exe` and a zip
+to a GitHub Release tagged `v1.0.<run-number>`. No manual steps — push to `main` and the packaged
+app appears under **Releases**.
+
 ## Project layout
 
 ```

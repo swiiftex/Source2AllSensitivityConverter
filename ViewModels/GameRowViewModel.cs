@@ -16,29 +16,11 @@ public sealed class GameRowViewModel(DetectedGame game) : ObservableObject
         set => SetField(ref _isSelected, value);
     }
 
-    private bool _allowExperimental;
     /// <summary>
-    /// When the user opts in, convert-only games (a known sensitivity but no safe config writer)
-    /// also become selectable. Toggled globally from the main view model.
+    /// A row's checkbox is enabled only when it can be auto-applied. Convert-only games stay
+    /// greyed for the checkbox, but their value is still shown in the copyable output box.
     /// </summary>
-    public bool AllowExperimental
-    {
-        get => _allowExperimental;
-        set
-        {
-            if (!SetField(ref _allowExperimental, value)) return;
-            OnPropertyChanged(nameof(IsEnabled));
-            OnPropertyChanged(nameof(StatusText));
-            // Don't leave a now-disabled row checked.
-            if (!IsEnabled) IsSelected = false;
-        }
-    }
-
-    /// <summary>
-    /// A row is checkable when it can be auto-applied safely, or when the user has enabled
-    /// experimental apply and the game at least has a known conversion. Others stay greyed out.
-    /// </summary>
-    public bool IsEnabled => Game.CanAutoApply || (_allowExperimental && Game.CanConvert);
+    public bool IsEnabled => Game.CanAutoApply;
 
     public string DisplayName => Game.DisplayName;
 
@@ -54,12 +36,25 @@ public sealed class GameRowViewModel(DetectedGame game) : ObservableObject
         {
             if (SetField(ref _convertedSensitivity, value))
             {
+                OnPropertyChanged(nameof(OutputValue));
                 OnPropertyChanged(nameof(OutputText));
                 OnPropertyChanged(nameof(Details));
             }
         }
     }
 
+    /// <summary>
+    /// The plain converted number for the copyable text box — no decorations, so it can be
+    /// pasted straight into a game. Empty when there is no value to copy.
+    /// </summary>
+    public string OutputValue => Game.CanConvert && ConvertedSensitivity is { } v
+        ? v.ToString("0.######", CultureInfo.InvariantCulture)
+        : "";
+
+    /// <summary>True when this game's converted value is an approximation (shown as a marker).</summary>
+    public bool IsApproximate => Game.CanConvert && Game.Definition!.ApproximateYaw;
+
+    /// <summary>Decorated value used in the details panel (may carry a ≈ for approximations).</summary>
     public string OutputText
     {
         get
@@ -67,7 +62,7 @@ public sealed class GameRowViewModel(DetectedGame game) : ObservableObject
             if (!Game.CanConvert) return "n/a";
             if (ConvertedSensitivity is not { } v) return "—";
             var s = v.ToString("0.######", CultureInfo.InvariantCulture);
-            return Game.Definition!.ApproximateYaw ? $"≈ {s}" : s;
+            return IsApproximate ? $"≈ {s}" : s;
         }
     }
 
@@ -75,8 +70,7 @@ public sealed class GameRowViewModel(DetectedGame game) : ObservableObject
     public string StatusText => Game switch
     {
         { CanAutoApply: true } => "Auto-apply",
-        { CanConvert: true } when _allowExperimental => "Export (exp.)",
-        { CanConvert: true } => "Manual only",
+        { CanConvert: true } => "Copy value",
         { Definition: not null } => "No conversion",
         _ => "Unrecognised",
     };
@@ -107,12 +101,9 @@ public sealed class GameRowViewModel(DetectedGame game) : ObservableObject
 
             if (Game.CanAutoApply)
                 lines.Add($"Auto-apply target: {Game.Definition!.Applier!.TargetDescription}");
-            else if (Game.CanConvert && _allowExperimental)
-                lines.Add("Experimental: no safe config writer for this engine. Applying exports the "
-                          + "value to a file on your Desktop (and the clipboard) to enter manually.");
             else if (Game.CanConvert)
-                lines.Add("Auto-apply is not supported here — set the value above manually in-game, "
-                          + "or enable \"Allow experimental auto-apply\".");
+                lines.Add("Auto-apply is not supported for this game — copy the value from the output "
+                          + "box and set it in-game yourself.");
 
             return string.Join(Environment.NewLine, lines);
         }

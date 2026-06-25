@@ -1,6 +1,5 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
-using System.IO;
 using System.Windows;
 using Source2AllSensitivityConverter.Models;
 using Source2AllSensitivityConverter.Services;
@@ -99,25 +98,6 @@ public sealed class MainViewModel : ObservableObject
         private set => SetField(ref _inputSummary, value);
     }
 
-    // ---- options ----
-
-    private bool _allowExperimentalApply;
-    /// <summary>
-    /// Opt-in: lets the user select convert-only games too. Games with a safe writer still get
-    /// their config edited; the rest export their value to a Desktop file + clipboard.
-    /// </summary>
-    public bool AllowExperimentalApply
-    {
-        get => _allowExperimentalApply;
-        set
-        {
-            if (!SetField(ref _allowExperimentalApply, value)) return;
-            foreach (var row in Games) row.AllowExperimental = value;
-            RaiseCommandStates();
-            OnPropertyChanged(nameof(SelectedDetails));
-        }
-    }
-
     // ---- state ----
 
     private bool _isBusy;
@@ -166,7 +146,7 @@ public sealed class MainViewModel : ObservableObject
             Games.Clear();
             foreach (var g in found)
             {
-                var row = new GameRowViewModel(g) { AllowExperimental = AllowExperimentalApply };
+                var row = new GameRowViewModel(g);
                 row.PropertyChanged += (_, e) =>
                 {
                     if (e.PropertyName == nameof(GameRowViewModel.IsSelected)) RaiseCommandStates();
@@ -220,68 +200,24 @@ public sealed class MainViewModel : ObservableObject
 
         int ok = 0, fail = 0;
         var problems = new List<string>();
-        var exported = new List<(string Name, string Engine, double Value)>();
 
         foreach (var row in Games.Where(g => g is { IsSelected: true, IsEnabled: true }))
         {
             var def = row.Game.Definition!;
-            if (def.YawConstant is not { } yaw) continue;
+            if (def.Applier is not { } applier || def.YawConstant is not { } yaw) continue;
+
             var value = SensitivityConverter.SensitivityFromCounts(counts, yaw);
-
-            if (def.Applier is { } applier)
-            {
-                var result = applier.Apply(row.Game.InstallPath, value);
-                if (result.Success) ok++;
-                else { fail++; problems.Add($"{row.DisplayName}: {result.Message}"); }
-            }
-            else
-            {
-                // Experimental, no safe writer: export rather than risk corrupting the config.
-                exported.Add((row.DisplayName, row.EngineText, value));
-            }
+            var result = applier.Apply(row.Game.InstallPath, value);
+            if (result.Success) ok++;
+            else { fail++; problems.Add($"{row.DisplayName}: {result.Message}"); }
         }
 
-        var parts = new List<string>();
-        if (ok > 0) parts.Add($"applied to {ok} game(s)");
-        if (exported.Count > 0) parts.Add(WriteExport(exported, counts));
-        if (fail > 0) parts.Add($"{fail} failed: {string.Join(" | ", problems)}");
-
-        StatusMessage = parts.Count == 0
-            ? "Nothing selected to apply."
-            : string.Join("; ", parts) + ".";
-    }
-
-    /// <summary>
-    /// Writes convert-only results to a text file on the Desktop and copies the values to the
-    /// clipboard, so the user can paste them into games we can't safely auto-write.
-    /// </summary>
-    private string WriteExport(List<(string Name, string Engine, double Value)> rows, double counts)
-    {
-        var lines = new List<string>
+        StatusMessage = (ok, fail) switch
         {
-            "Source → All Sensitivity Converter — manual values",
-            $"Generated {DateTime.Now:yyyy-MM-dd HH:mm}  |  {InputSummary}",
-            new string('-', 56),
+            (0, 0) => "Nothing selected to apply.",
+            (_, 0) => $"Applied to {ok} game(s) successfully.",
+            _ => $"Applied to {ok}, failed {fail}: {string.Join(" | ", problems)}",
         };
-        lines.AddRange(rows.Select(r =>
-            $"{r.Name,-32} [{r.Engine}]  ->  {r.Value.ToString("0.######", CultureInfo.InvariantCulture)}"));
-
-        try
-        {
-            var path = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
-                "Source2All_Sensitivities.txt");
-            File.WriteAllLines(path, lines);
-
-            try { System.Windows.Clipboard.SetText(string.Join(Environment.NewLine, lines)); }
-            catch { /* clipboard may be locked by another app */ }
-
-            return $"exported {rows.Count} value(s) to {path} (and clipboard)";
-        }
-        catch (Exception ex)
-        {
-            return $"could not write export file: {ex.Message}";
-        }
     }
 
     private void SetAllSelected(bool selected)

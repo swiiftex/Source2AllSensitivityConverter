@@ -80,10 +80,8 @@
             <Button Content="Select none" Command="{Binding SelectNoneCommand}"/>
             <Button Content="Apply to selected" Command="{Binding ApplyCommand}" MinWidth="130"
                     FontWeight="SemiBold"/>
-            <CheckBox Content="Allow experimental auto-apply" Foreground="#E6E6E6"
-                      VerticalAlignment="Center" Margin="8,0,0,0"
-                      IsChecked="{Binding AllowExperimentalApply}"
-                      ToolTip="Un-greys games that have a known conversion but no safe config writer.&#x0a;Source games still get their config edited (with a .s2a-backup).&#x0a;Other games export their value to a file on your Desktop + clipboard instead of editing unknown config formats."/>
+            <TextBlock VerticalAlignment="Center" Margin="8,0,0,0" Foreground="#9AA0A6"
+                       Text="Greyed games can't be auto-applied — copy their value from the Output column."/>
         </StackPanel>
 
         <!-- Games list + details -->
@@ -125,9 +123,24 @@
                                         DisplayMemberBinding="{Binding StoreText}"/>
                         <GridViewColumn Header="Engine" Width="90"
                                         DisplayMemberBinding="{Binding EngineText}"/>
-                        <GridViewColumn Header="Output sens" Width="90"
-                                        DisplayMemberBinding="{Binding OutputText}"/>
-                        <GridViewColumn Header="Status" Width="100"
+                        <GridViewColumn Header="Output sens (copy)" Width="130">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="≈" Foreground="#9AA0A6" VerticalAlignment="Center"
+                                                   Margin="0,0,3,0"
+                                                   ToolTip="Conversion factor for this game is approximate."
+                                                   Visibility="{Binding IsApproximate, Converter={StaticResource BoolToVis}}"/>
+                                        <TextBox Text="{Binding OutputValue, Mode=OneWay}" IsReadOnly="True"
+                                                 BorderThickness="0" Background="Transparent"
+                                                 Foreground="#E6E6E6" Padding="0" MinWidth="80"
+                                                 IsTabStop="False" VerticalAlignment="Center"
+                                                 ToolTip="Read-only — click and Ctrl+C to copy."/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                        <GridViewColumn Header="Status" Width="90"
                                         DisplayMemberBinding="{Binding StatusText}"/>
                     </GridView>
                 </ListView.View>

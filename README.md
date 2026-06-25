@@ -18,8 +18,9 @@ installed on your machine — scanning Steam, Epic and GOG libraries, detecting 
    catalog, the engine is guessed from the on-disk file structure.
 4. **Check the games** you want and click **Apply to selected** — the converted sensitivity is written
    to each game's config file.
-   - Games that can't be auto-applied are **greyed out**. Clicking one still shows its detected engine
-     and the computed output sensitivity so you can set it yourself.
+   - Every row shows its converted value in a **read-only "Output sens (copy)" box** you can select
+     and copy. Games that can't be auto-applied are **greyed out** (their checkbox is disabled), but
+     the output box still works, so you can grab the value and set it in-game yourself.
 
 ## How the conversion works
 
@@ -84,23 +85,12 @@ external writers are deliberately conservative: they **only edit a config file t
 (launch the game once first), replace the value in place when present, and back it up first
 (`*.s2a-backup`) — they never fabricate a file in a guessed location.
 
-Engines whose sensitivity isn't a plain, documented text value are convert-only by default:
+Engines whose sensitivity isn't a plain, documented text value are convert-only:
 **Valorant** (settings are cloud-synced and overwritten on launch), **Overwatch 2** (no confirmable
-local key / opaque scaling), and **Call of Duty: MW** (settings keyed by opaque numeric IDs). For
-these, enabling experimental apply exports the value instead of risking config corruption.
-
-### "Allow experimental auto-apply" (opt-in)
-
-Tick the **Allow experimental auto-apply** checkbox to un-grey every game that has a *known
-conversion* (not just the safely-writable ones). When you then apply:
-
-- Games with a safe writer (Source family) still get their config edited (with backup).
-- Games without a verified config format are **not** edited blindly — instead their computed values
-  are exported to `Source2All_Sensitivities.txt` on your Desktop and copied to the clipboard, so you
-  can paste them in manually. This avoids corrupting configs whose exact key/format isn't confirmed.
-
-As verified writers are added to the catalog (`Applier = …` on a `GameDefinition`), those games will
-graduate from "export" to a real in-place edit automatically.
+local key / opaque scaling), and **Call of Duty: MW** (settings keyed by opaque numeric IDs). These
+are greyed for auto-apply, but their converted value still appears in the copyable output box —
+copy it and set it in-game. As verified writers are added to the catalog (`Applier = …` on a
+`GameDefinition`), those games graduate to a real in-place edit automatically.
 
 ## Build & run
 

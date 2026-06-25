@@ -25,6 +25,10 @@ public static class UserConfigPaths
         Path.Combine(new[] { Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) }
             .Concat(parts).ToArray());
 
+    private static string AppData(params string[] parts) =>
+        Path.Combine(new[] { Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) }
+            .Concat(parts).ToArray());
+
     /// <summary>Returns the first existing candidate, or the first candidate if none exist.</summary>
     private static string FirstExistingOrPrimary(params string[] candidates)
         => candidates.FirstOrDefault(File.Exists) ?? candidates[0];
@@ -41,4 +45,32 @@ public static class UserConfigPaths
 
     public static string DoomEternal(string _) =>
         SavedGames("id Software", "DOOMEternal", "base", "DOOMEternalConfig.local");
+
+    public static string Mordhau(string _) =>
+        LocalAppData("Mordhau", "Saved", "Config", "WindowsClient", "Input.ini");
+
+    public static string MinecraftOptions(string installPath) =>
+        // The scanner passes the .minecraft folder as the install path; options.txt sits inside it.
+        string.IsNullOrEmpty(installPath)
+            ? AppData(".minecraft", "options.txt")
+            : Path.Combine(installPath, "options.txt");
+
+    /// <summary>
+    /// Rainbow Six Siege keeps settings under Documents/My Games/Rainbow Six - Siege/&lt;hash&gt;/.
+    /// The hash folder is per Ubisoft account, so we pick the first one that has a GameSettings.ini.
+    /// </summary>
+    public static string RainbowSixSiege(string _)
+    {
+        var baseDir = Documents("My Games", "Rainbow Six - Siege");
+        var placeholder = Path.Combine(baseDir, "<account-id>", "GameSettings.ini");
+        if (!Directory.Exists(baseDir)) return placeholder;
+        try
+        {
+            var hit = Directory.EnumerateDirectories(baseDir)
+                .Select(d => Path.Combine(d, "GameSettings.ini"))
+                .FirstOrDefault(File.Exists);
+            return hit ?? placeholder;
+        }
+        catch { return placeholder; }
+    }
 }

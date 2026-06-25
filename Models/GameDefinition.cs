@@ -21,6 +21,12 @@ public sealed class GameDefinition
     /// </summary>
     public double? YawConstant { get; init; }
 
+    /// <summary>
+    /// True when <see cref="YawConstant"/> is a commonly-cited estimate rather than a verified
+    /// value. Surfaced in the UI so the user knows the converted number is a close approximation.
+    /// </summary>
+    public bool ApproximateYaw { get; init; }
+
     /// <summary>Steam application id, when the game ships on Steam. Primary match key.</summary>
     public int? SteamAppId { get; init; }
 

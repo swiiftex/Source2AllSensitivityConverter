@@ -36,10 +36,19 @@ public static class SensitivityConverter
 
     /// <summary>
     /// The number of mouse counts required to turn a full 360° at the given sensitivity/yaw.
-    /// Useful as a DPI-independent way to express the resulting feel.
+    /// This is the DPI-independent "feel" that the whole app pivots on: any input (a game's
+    /// sensitivity, or a cm/360 + DPI) is reduced to counts/360, and every target game's
+    /// sensitivity is then derived back from it.
     /// </summary>
     public static double CountsPer360(double sens, double yaw) => 360.0 / (sens * yaw);
 
+    /// <summary>The sensitivity that produces <paramref name="countsPer360"/> for a given yaw.</summary>
+    public static double SensitivityFromCounts(double countsPer360, double yaw)
+        => 360.0 / (countsPer360 * yaw);
+
+    /// <summary>counts/360 implied by a physical cm/360 at a given DPI (2.54 cm per inch).</summary>
+    public static double CountsPer360FromCm(double cmPer360, double dpi) => cmPer360 * dpi / 2.54;
+
     /// <summary>cm/360 for a given counts-per-360 and mouse DPI (2.54 cm per inch).</summary>
-    public static double CmPer360(double countsPer360, int dpi) => countsPer360 / dpi * 2.54;
+    public static double CmPer360(double countsPer360, double dpi) => countsPer360 / dpi * 2.54;
 }

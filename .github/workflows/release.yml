@@ -1,0 +1,55 @@
+name: Build and Release
+
+# Builds a self-contained, single-file Windows package and publishes it to a
+# GitHub Release on every push to main (and on manual dispatch).
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write   # required to create releases / upload assets
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Publish (self-contained, single file, win-x64)
+        shell: pwsh
+        run: >
+          dotnet publish Source2AllSensitivityConverter.csproj
+          -c Release -r win-x64 --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:EnableCompressionInSingleFile=true
+          -p:DebugType=none
+          -o publish
+
+      - name: Package zip
+        shell: pwsh
+        run: Compress-Archive -Path publish/* -DestinationPath Source2AllSensitivityConverter-win-x64.zip -Force
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: Build v1.0.${{ github.run_number }}
+          body: |
+            Automated build from ${{ github.sha }}.
+
+            **Download:** `Source2AllSensitivityConverter-win-x64.zip` (self-contained — no .NET install required) or the raw `.exe`.
+          files: |
+            Source2AllSensitivityConverter-win-x64.zip
+            publish/Source2AllSensitivityConverter.exe
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

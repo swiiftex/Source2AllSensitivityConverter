@@ -23,6 +23,7 @@ public sealed class MainViewModel : ObservableObject
     public RelayCommand SelectAllCommand { get; }
     public RelayCommand SelectNoneCommand { get; }
     public RelayCommand CopyConvertCommand { get; }
+    public RelayCommand CopySelectedCommand { get; }
 
     public MainViewModel()
     {
@@ -50,6 +51,8 @@ public sealed class MainViewModel : ObservableObject
         SelectAllCommand = new RelayCommand(() => SetAllSelected(true), () => !IsBusy);
         SelectNoneCommand = new RelayCommand(() => SetAllSelected(false), () => !IsBusy);
         CopyConvertCommand = new RelayCommand(CopyConvertOutput, () => ConvertOutput.Length > 0);
+        CopySelectedCommand = new RelayCommand(CopySelectedOutput,
+            () => !string.IsNullOrEmpty(SelectedRow?.OutputValue));
 
         // Show manually-added games immediately (before any scan).
         foreach (var g in _customGames) AddGameRow(g);
@@ -191,12 +194,18 @@ public sealed class MainViewModel : ObservableObject
     private void CopyConvertOutput()
     {
         if (_convertOutput.Length == 0) return;
-        try
-        {
-            Clipboard.SetText(_convertOutput);
-            ConvertNote = $"Copied {_convertOutput} to clipboard.";
-        }
-        catch { ConvertNote = "Could not access the clipboard."; }
+        ConvertNote = ClipboardHelper.TrySetText(_convertOutput)
+            ? $"Copied {_convertOutput} to clipboard."
+            : "Could not access the clipboard — try again.";
+    }
+
+    private void CopySelectedOutput()
+    {
+        var value = SelectedRow?.OutputValue;
+        if (string.IsNullOrEmpty(value)) return;
+        StatusMessage = ClipboardHelper.TrySetText(value)
+            ? $"Copied {value} to clipboard."
+            : "Could not access the clipboard — try again.";
     }
 
     // ---- manually-added games ----
@@ -247,7 +256,10 @@ public sealed class MainViewModel : ObservableObject
         set
         {
             if (SetField(ref _selectedRow, value))
+            {
                 OnPropertyChanged(nameof(SelectedDetails));
+                CopySelectedCommand.RaiseCanExecuteChanged();
+            }
         }
     }
 
@@ -411,6 +423,7 @@ public sealed class MainViewModel : ObservableObject
             ApplyCommand.RaiseCanExecuteChanged();
             SelectAllCommand.RaiseCanExecuteChanged();
             SelectNoneCommand.RaiseCanExecuteChanged();
+            CopySelectedCommand.RaiseCanExecuteChanged();
         }
 
         var dispatcher = Application.Current?.Dispatcher;

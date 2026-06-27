@@ -9,8 +9,13 @@ namespace Source2AllSensitivityConverter.ViewModels;
 public sealed class MainViewModel : ObservableObject
 {
     private readonly InstalledGameScanner _scanner = new();
+    private readonly AppSettings _settings;
+    private readonly List<DetectedGame> _customGames = [];
 
     public ObservableCollection<GameRowViewModel> Games { get; } = [];
+
+    /// <summary>Convertible catalog games plus any the user added manually (the dropdown source).</summary>
+    public ObservableCollection<SourceOption> SourceOptions { get; } = [];
 
     public RelayCommand ScanCommand { get; }
     public RelayCommand DetectCommand { get; }
@@ -21,12 +26,19 @@ public sealed class MainViewModel : ObservableObject
 
     public MainViewModel()
     {
-        var settings = SettingsStore.Load();
+        _settings = SettingsStore.Load();
+
+        foreach (var g in GameCatalog.All.Where(g => g.CanConvert).OrderBy(g => g.Name, StringComparer.OrdinalIgnoreCase))
+            SourceOptions.Add(new SourceOption(g));
+
+        // Restore manually-added games.
+        foreach (var cg in _settings.CustomGames)
+            RegisterCustomGame(cg.ToDetectedGame());
 
         // Convert tab: restore the most recently used game/sensitivity, with sensible defaults.
-        _convertFrom = FindOption(settings.FromGame) ?? FindOption("Counter-Strike 2") ?? SourceOptions[0];
-        _convertTo = FindOption(settings.ToGame) ?? FindOption("VALORANT") ?? SourceOptions[0];
-        _convertSensitivityText = settings.Sensitivity ?? "1.0";
+        _convertFrom = FindOption(_settings.FromGame) ?? FindOption("Counter-Strike 2") ?? SourceOptions[0];
+        _convertTo = FindOption(_settings.ToGame) ?? FindOption("VALORANT") ?? SourceOptions[0];
+        _convertSensitivityText = _settings.Sensitivity ?? "1.0";
 
         // Auto-apply tab shares the same starting point so both tabs feel consistent.
         _selectedSource = _convertFrom;
@@ -39,6 +51,9 @@ public sealed class MainViewModel : ObservableObject
         SelectNoneCommand = new RelayCommand(() => SetAllSelected(false), () => !IsBusy);
         CopyConvertCommand = new RelayCommand(CopyConvertOutput, () => ConvertOutput.Length > 0);
 
+        // Show manually-added games immediately (before any scan).
+        foreach (var g in _customGames) AddGameRow(g);
+
         RecomputeConvert();
         OnInputChanged();
     }
@@ -47,13 +62,6 @@ public sealed class MainViewModel : ObservableObject
         => name is null ? null : SourceOptions.FirstOrDefault(o => o.Game.Name == name);
 
     // ---- input: either a game's sensitivity, or a cm/360 + DPI ----
-
-    /// <summary>All convertible catalog games, offered as the "input is from this game" source.</summary>
-    public IReadOnlyList<SourceOption> SourceOptions { get; } =
-        GameCatalog.All.Where(g => g.CanConvert)
-            .OrderBy(g => g.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(g => new SourceOption(g))
-            .ToList();
 
     private SourceOption _selectedSource;
     public SourceOption SelectedSource
@@ -174,12 +182,10 @@ public sealed class MainViewModel : ObservableObject
             ConvertNote = "Enter a valid sensitivity.";
         }
 
-        SettingsStore.Save(new AppSettings
-        {
-            FromGame = _convertFrom?.Game.Name,
-            ToGame = _convertTo?.Game.Name,
-            Sensitivity = _convertSensitivityText,
-        });
+        _settings.FromGame = _convertFrom?.Game.Name;
+        _settings.ToGame = _convertTo?.Game.Name;
+        _settings.Sensitivity = _convertSensitivityText;
+        SettingsStore.Save(_settings);
     }
 
     private void CopyConvertOutput()
@@ -191,6 +197,28 @@ public sealed class MainViewModel : ObservableObject
             ConvertNote = $"Copied {_convertOutput} to clipboard.";
         }
         catch { ConvertNote = "Could not access the clipboard."; }
+    }
+
+    // ---- manually-added games ----
+
+    /// <summary>Persist a new user-defined game and surface it in the dropdown and games list.</summary>
+    public void AddCustomGame(CustomGame game)
+    {
+        _settings.CustomGames.Add(game);
+        SettingsStore.Save(_settings);
+
+        var detected = game.ToDetectedGame();
+        RegisterCustomGame(detected);
+        AddGameRow(detected);
+        StatusMessage = $"Added \"{game.Name}\". It now appears in the list and the game dropdowns.";
+    }
+
+    /// <summary>Track a custom game and add it to the convertible dropdown (without a list row).</summary>
+    private void RegisterCustomGame(DetectedGame detected)
+    {
+        _customGames.Add(detected);
+        if (detected.Definition is { CanConvert: true })
+            SourceOptions.Add(new SourceOption(detected.Definition));
     }
 
     // ---- state ----
@@ -230,6 +258,18 @@ public sealed class MainViewModel : ObservableObject
 
     // ---- actions ----
 
+    /// <summary>Create a list row for a detected game, wire selection updates, and compute its value.</summary>
+    private void AddGameRow(DetectedGame game)
+    {
+        var row = new GameRowViewModel(game);
+        row.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(GameRowViewModel.IsSelected)) RaiseCommandStates();
+        };
+        row.Recompute(CurrentCountsPer360());
+        Games.Add(row);
+    }
+
     private async Task ScanAsync()
     {
         IsBusy = true;
@@ -239,15 +279,8 @@ public sealed class MainViewModel : ObservableObject
             var found = await Task.Run(() => _scanner.Scan());
 
             Games.Clear();
-            foreach (var g in found)
-            {
-                var row = new GameRowViewModel(g);
-                row.PropertyChanged += (_, e) =>
-                {
-                    if (e.PropertyName == nameof(GameRowViewModel.IsSelected)) RaiseCommandStates();
-                };
-                Games.Add(row);
-            }
+            foreach (var g in found) AddGameRow(g);
+            foreach (var g in _customGames) AddGameRow(g);   // keep manually-added games in the list
 
             RecomputeAll();
 

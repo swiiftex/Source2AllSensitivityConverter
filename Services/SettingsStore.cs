@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text.Json;
+using Source2AllSensitivityConverter.Models;
 
 namespace Source2AllSensitivityConverter.Services;
 
@@ -9,6 +10,9 @@ public sealed class AppSettings
     public string? FromGame { get; set; }
     public string? ToGame { get; set; }
     public string? Sensitivity { get; set; }
+
+    /// <summary>Games the user added manually via the "Manually add game" dialog.</summary>
+    public List<CustomGame> CustomGames { get; set; } = [];
 }
 
 /// <summary>

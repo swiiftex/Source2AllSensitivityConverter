@@ -140,6 +140,22 @@ directly from `%APPDATA%/.minecraft`.
 VALORANT, Overwatch 2 and Call of Duty are convert-only because their settings are cloud-synced, opaquely
 scaled, or keyed by numeric IDs; their value still appears in the copyable output box.
 
+## Adding your own game
+
+On the **Auto-apply** tab, click **Manually add game** to open the editor:
+
+- **General** — the game name, and the value in that game that feels like CS2/Source sensitivity 1.0
+  (e.g. if CS2 1.0 matches `0.15`, enter `0.15`). That's all the converter needs.
+- **Auto-apply (optional)** — a config **folder**, **file**, and a **sensitivity line** template. Use
+  `{value}` where the number goes, e.g. `sensitivity "{value}"`, `Sensitivity={value}`,
+  `seta sensitivity "{value}"`, or `mouseSensitivity:{value}`. **Browse…** lets you pick the config
+  file directly. Leave these blank to make the game convert-only.
+
+When applied, the app finds the line that starts with your key and replaces its number (backing the
+file up first), or appends/creates the line if it isn't there. Added games are saved to
+`%APPDATA%\Source2AllSensitivityConverter\settings.json` and appear in the dropdowns and the
+Auto-apply list on every launch.
+
 ## Build & run
 
 ```powershell

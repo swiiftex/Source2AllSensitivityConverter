@@ -142,6 +142,7 @@
                         <Button Content="Select none" Command="{Binding SelectNoneCommand}"/>
                         <Button Content="Apply to selected" Command="{Binding ApplyCommand}" MinWidth="140"
                                 Style="{StaticResource AccentButton}"/>
+                        <Button Content="Manually add game" Click="OnManuallyAddGame" MinWidth="140"/>
                         <TextBlock VerticalAlignment="Center" Margin="10,0,0,0" Foreground="{StaticResource SubTextBrush}"
                                    Text="Greyed games can't be auto-applied — copy their value from the Output column."/>
                     </StackPanel>

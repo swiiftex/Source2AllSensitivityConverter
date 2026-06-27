@@ -217,9 +217,13 @@
                                 <TextBlock Text="{Binding SelectedDetails}" TextWrapping="Wrap"
                                            Foreground="{StaticResource SubTextBrush}"
                                            FontFamily="Cascadia Mono, Consolas" FontSize="12" LineHeight="18"/>
-                                <Button Content="Copy sensitivity" Command="{Binding CopySelectedCommand}"
-                                        Style="{StaticResource AccentButton}" HorizontalAlignment="Left"
-                                        Margin="0,16,0,0" MinWidth="120"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                                    <Button Content="Copy sensitivity" Command="{Binding CopySelectedCommand}"
+                                            Style="{StaticResource AccentButton}" MinWidth="120"/>
+                                    <Button Content="Add config…" Click="OnAddConfigForSelected"
+                                            IsEnabled="{Binding CanAddConfigForSelected}" Margin="8,0,0,0"
+                                            ToolTip="Set up auto-apply for this game by pointing at its config/save file."/>
+                                </StackPanel>
                             </StackPanel>
                         </Border>
                     </Grid>

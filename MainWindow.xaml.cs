@@ -20,4 +20,13 @@ public partial class MainWindow : Window
         if (dlg.ShowDialog() == true && dlg.Result is { } game && DataContext is MainViewModel vm)
             vm.AddCustomGame(game);
     }
+
+    private void OnAddConfigForSelected(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainViewModel vm || vm.SelectedRow is not { } row) return;
+
+        var dlg = new AddGameWindow(row.DisplayName, row.Game.InstallPath) { Owner = this };
+        if (dlg.ShowDialog() == true && dlg.Result is { } game)
+            vm.AddCustomGame(game);
+    }
 }

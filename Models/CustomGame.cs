@@ -1,6 +1,7 @@
 using Source2AllSensitivityConverter.Services;
 using Source2AllSensitivityConverter.Services.Appliers;
 using System.IO;
+using System.Text.Json.Serialization;
 
 namespace Source2AllSensitivityConverter.Models;
 
@@ -11,6 +12,24 @@ public enum AutoApplyMode
     TextTemplate,  // plain-text config; a {value} line template
     GvasString,    // GVAS .sav map value stored as text
     GvasNumeric,   // GVAS .sav map value stored as Int/Float/Double
+}
+
+/// <summary>One place in the config file where the sensitivity is written.</summary>
+public sealed class SensitivityTarget
+{
+    public AutoApplyMode Mode { get; set; } = AutoApplyMode.None;
+    public string SensitivityLine { get; set; } = "";   // TextTemplate: {value} template
+    public string OptionKey { get; set; } = "";          // GVAS: map key
+    public GvasValueKind GvasKind { get; set; } = GvasValueKind.Unknown; // GvasNumeric width
+
+    /// <summary>Short label for the dialog's "will write" list.</summary>
+    public string Describe() => Mode switch
+    {
+        AutoApplyMode.TextTemplate => $"text · {SensitivityLine}",
+        AutoApplyMode.GvasString => $"text · {OptionKey}",
+        AutoApplyMode.GvasNumeric => $"{GvasKind.Word()} · {OptionKey}",
+        _ => "(none)",
+    };
 }
 
 /// <summary>
@@ -27,34 +46,34 @@ public sealed class CustomGame
     public string ConfigFolder { get; set; } = "";
     public string ConfigFile { get; set; } = "";
 
+    /// <summary>All the places the sensitivity is written in the config (supports multiple values).</summary>
+    public List<SensitivityTarget> Targets { get; set; } = [];
+
+    // ---- legacy single-target fields (older saved settings) ----
     public AutoApplyMode Mode { get; set; } = AutoApplyMode.None;
-
-    /// <summary>Text-template mode: a one-line template with a <c>{value}</c> placeholder.</summary>
     public string SensitivityLine { get; set; } = "";
-
-    /// <summary>GVAS modes: the map key whose value holds the sensitivity.</summary>
     public string OptionKey { get; set; } = "";
-
-    /// <summary>GVAS-numeric mode: how the value is stored.</summary>
     public GvasValueKind GvasKind { get; set; } = GvasValueKind.Unknown;
 
+    [JsonIgnore]
     public string FullConfigPath => Path.Combine(ConfigFolder, ConfigFile);
 
     private bool HasFile =>
         !string.IsNullOrWhiteSpace(ConfigFolder) && !string.IsNullOrWhiteSpace(ConfigFile);
 
-    /// <summary>Resolve the effective mode, inferring TextTemplate for older saved entries.</summary>
-    private AutoApplyMode EffectiveMode
+    /// <summary>Targets to write, migrating an older single-target entry if needed.</summary>
+    private IReadOnlyList<SensitivityTarget> EffectiveTargets
     {
         get
         {
-            if (Mode != AutoApplyMode.None) return Mode;
-            return HasFile && !string.IsNullOrWhiteSpace(SensitivityLine)
-                ? AutoApplyMode.TextTemplate
-                : AutoApplyMode.None;
+            if (Targets.Count > 0) return Targets;
+            if (Mode != AutoApplyMode.None)
+                return [new SensitivityTarget { Mode = Mode, SensitivityLine = SensitivityLine, OptionKey = OptionKey, GvasKind = GvasKind }];
+            return [];
         }
     }
 
+    [JsonIgnore]
     public double Yaw => SensitivityConverter.SourceYaw / EquivalentOfCs1;
 
     public GameDefinition ToDefinition() => new()
@@ -68,14 +87,27 @@ public sealed class CustomGame
     private IConfigApplier? BuildApplier()
     {
         if (!HasFile) return null;
-        return EffectiveMode switch
+
+        var appliers = EffectiveTargets
+            .Select(BuildApplierFor)
+            .OfType<IConfigApplier>()
+            .ToList();
+
+        return appliers.Count switch
         {
-            AutoApplyMode.TextTemplate => new TemplateApplier(FullConfigPath, SensitivityLine),
-            AutoApplyMode.GvasString => new GvasStringMapApplier(_ => FullConfigPath, OptionKey),
-            AutoApplyMode.GvasNumeric => new GvasMapNumericApplier(_ => FullConfigPath, OptionKey, GvasKind),
-            _ => null,
+            0 => null,
+            1 => appliers[0],
+            _ => new CompositeApplier(appliers),
         };
     }
+
+    private IConfigApplier? BuildApplierFor(SensitivityTarget t) => t.Mode switch
+    {
+        AutoApplyMode.TextTemplate => new TemplateApplier(FullConfigPath, t.SensitivityLine),
+        AutoApplyMode.GvasString => new GvasStringMapApplier(_ => FullConfigPath, t.OptionKey),
+        AutoApplyMode.GvasNumeric => new GvasMapNumericApplier(_ => FullConfigPath, t.OptionKey, t.GvasKind),
+        _ => null,
+    };
 
     public DetectedGame ToDetectedGame()
     {

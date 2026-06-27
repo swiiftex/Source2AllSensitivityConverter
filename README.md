@@ -146,24 +146,34 @@ scaled, or keyed by numeric IDs; their value still appears in the copyable outpu
 
 ## Adding your own game
 
-On the **Auto-apply** tab, click **Manually add game** to open the guided editor:
+Two ways in:
+- **Manually add game** (toolbar) — add a brand-new game.
+- **Add config…** (Details panel) — select an *unsupported* game in the list and add a config for it.
+  This **upgrades that row in place** (showing its conversion immediately) instead of creating a
+  duplicate; the name is pre-filled for you.
+
+In the editor:
 
 1. **Game name** + the value in that game that feels like CS2/Source sensitivity 1.0 (e.g. if CS2 1.0
    matches `0.15`, enter `0.15`). That alone makes it convertible.
 2. Tick **Enable auto-apply** to reveal the config settings.
 3. **Browse** to the save/config file — plain text (`.cfg`/`.ini`/`.txt`) **or** a binary Unreal
    `.sav`. Text files are shown as-is; `.sav` files are parsed and shown as readable `key = value` lines.
-4. **Highlight the sensitivity number** in the viewer and click **Detect from highlight**. The app
-   works out the type — for `.sav` it reads the GVAS storage type (`text` / `integer` / `float` /
-   `double`); for text it tells integer from decimal — and asks you to confirm:
+   When the file opens, the app jumps to and highlights the sensitivity value automatically.
+4. **Highlight the sensitivity number** and click **Detect from highlight**. The app works out the type
+   — for `.sav` it reads the GVAS storage type (`text` / `integer` / `float` / `double`); for text it
+   tells integer from decimal — and asks you to confirm
    *"The detected sensitivity is 0.50 (float value) — is this correct?"*
+   - **Repeat for each value** if the config has several sensitivities (hipfire, ADS, scope…). Each
+     confirmed value is added to a write list shown under the buttons; **Clear** empties it.
 5. **Save**.
 
-The app then writes accordingly: plain text via a `{value}` line template, GVAS string values via the
-in-place string writer (adjusting the map size), and GVAS numeric values by overwriting the raw
-int/float/double. A `*.s2a-backup` is taken first, and the file is only touched if it exists. Added
-games are saved to `%APPDATA%\Source2AllSensitivityConverter\settings.json` and reappear in the
-dropdowns and the Auto-apply list on every launch.
+On apply, the app writes **every** confirmed value (the same converted number) to the file: plain text
+via `{value}` line templates, GVAS strings via the in-place string writer (adjusting the map size), and
+GVAS numerics by overwriting the raw int/float/double. A `*.s2a-backup` is taken first, and the file is
+only touched if it exists. Added games are saved to
+`%APPDATA%\Source2AllSensitivityConverter\settings.json` and reappear (merged onto the matching
+installed game, never duplicated) on every launch.
 
 ## Build & run
 

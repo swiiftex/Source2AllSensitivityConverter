@@ -10,7 +10,6 @@ public sealed class MainViewModel : ObservableObject
 {
     private readonly InstalledGameScanner _scanner = new();
     private readonly AppSettings _settings;
-    private readonly List<DetectedGame> _customGames = [];
 
     public ObservableCollection<GameRowViewModel> Games { get; } = [];
 
@@ -32,9 +31,9 @@ public sealed class MainViewModel : ObservableObject
         foreach (var g in GameCatalog.All.Where(g => g.CanConvert).OrderBy(g => g.Name, StringComparer.OrdinalIgnoreCase))
             SourceOptions.Add(new SourceOption(g));
 
-        // Restore manually-added games.
+        // Restore manually-added games into the dropdown.
         foreach (var cg in _settings.CustomGames)
-            RegisterCustomGame(cg.ToDetectedGame());
+            EnsureSourceOption(cg.Name, cg.ToDefinition());
 
         // Convert tab: restore the most recently used game/sensitivity, with sensible defaults.
         _convertFrom = FindOption(_settings.FromGame) ?? FindOption("Counter-Strike 2") ?? SourceOptions[0];
@@ -55,7 +54,7 @@ public sealed class MainViewModel : ObservableObject
             () => !string.IsNullOrEmpty(SelectedRow?.OutputValue));
 
         // Show manually-added games immediately (before any scan).
-        foreach (var g in _customGames) AddGameRow(g);
+        IntegrateCustomGames();
 
         RecomputeConvert();
         OnInputChanged();
@@ -210,25 +209,75 @@ public sealed class MainViewModel : ObservableObject
 
     // ---- manually-added games ----
 
-    /// <summary>Persist a new user-defined game and surface it in the dropdown and games list.</summary>
+    /// <summary>True when the selected game has no auto-apply yet (so a config can be added for it).</summary>
+    public bool CanAddConfigForSelected => SelectedRow is { } r && !r.Game.CanAutoApply;
+
+    /// <summary>
+    /// Persist a user-defined game and apply it to the list. If a game with the same name is already
+    /// shown (e.g. an unsupported scanned game), its row is upgraded in place instead of duplicated.
+    /// </summary>
     public void AddCustomGame(CustomGame game)
     {
+        _settings.CustomGames.RemoveAll(c => NameEquals(c.Name, game.Name));
         _settings.CustomGames.Add(game);
         SettingsStore.Save(_settings);
 
-        var detected = game.ToDetectedGame();
-        RegisterCustomGame(detected);
-        AddGameRow(detected);
-        StatusMessage = $"Added \"{game.Name}\". It now appears in the list and the game dropdowns.";
+        var def = game.ToDefinition();
+        var existing = Games.FirstOrDefault(r => NameEquals(r.DisplayName, game.Name));
+        if (existing is not null)
+            ReplaceRow(existing, Merge(existing.Game, def));
+        else
+            AddGameRow(game.ToDetectedGame());
+
+        EnsureSourceOption(game.Name, def);
+        StatusMessage = $"Added \"{game.Name}\" — its conversion now shows in the list.";
     }
 
-    /// <summary>Track a custom game and add it to the convertible dropdown (without a list row).</summary>
-    private void RegisterCustomGame(DetectedGame detected)
+    /// <summary>Merge custom games into the current list: upgrade matching rows, add the rest.</summary>
+    private void IntegrateCustomGames()
     {
-        _customGames.Add(detected);
-        if (detected.Definition is { CanConvert: true })
-            SourceOptions.Add(new SourceOption(detected.Definition));
+        foreach (var cg in _settings.CustomGames)
+        {
+            var def = cg.ToDefinition();
+            var existing = Games.FirstOrDefault(r => NameEquals(r.DisplayName, cg.Name));
+            if (existing is not null)
+                ReplaceRow(existing, Merge(existing.Game, def));
+            else
+                AddGameRow(cg.ToDetectedGame());
+        }
     }
+
+    /// <summary>Attach a custom definition to an existing detected game, keeping its store/engine/path.</summary>
+    private static DetectedGame Merge(DetectedGame existing, GameDefinition def) => new()
+    {
+        DisplayName = existing.DisplayName,
+        InstallPath = existing.InstallPath,
+        Store = existing.Store,
+        Definition = def,
+        DetectedEngine = existing.DetectedEngine != Engine.Unknown ? existing.DetectedEngine : Engine.Other,
+    };
+
+    private void ReplaceRow(GameRowViewModel oldRow, DetectedGame replacement)
+    {
+        var index = Games.IndexOf(oldRow);
+        if (index < 0) { AddGameRow(replacement); return; }
+
+        var wasSelected = ReferenceEquals(SelectedRow, oldRow);
+        var row = MakeRow(replacement);
+        Games[index] = row;
+        if (wasSelected) SelectedRow = row;
+    }
+
+    private void EnsureSourceOption(string name, GameDefinition def)
+    {
+        for (var i = SourceOptions.Count - 1; i >= 0; i--)
+            if (NameEquals(SourceOptions[i].Game.Name, name))
+                SourceOptions.RemoveAt(i);
+
+        if (def.CanConvert) SourceOptions.Add(new SourceOption(def));
+    }
+
+    private static bool NameEquals(string a, string b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
 
     // ---- state ----
 
@@ -258,6 +307,7 @@ public sealed class MainViewModel : ObservableObject
             if (SetField(ref _selectedRow, value))
             {
                 OnPropertyChanged(nameof(SelectedDetails));
+                OnPropertyChanged(nameof(CanAddConfigForSelected));
                 CopySelectedCommand.RaiseCanExecuteChanged();
             }
         }
@@ -271,7 +321,7 @@ public sealed class MainViewModel : ObservableObject
     // ---- actions ----
 
     /// <summary>Create a list row for a detected game, wire selection updates, and compute its value.</summary>
-    private void AddGameRow(DetectedGame game)
+    private GameRowViewModel MakeRow(DetectedGame game)
     {
         var row = new GameRowViewModel(game);
         row.PropertyChanged += (_, e) =>
@@ -279,8 +329,10 @@ public sealed class MainViewModel : ObservableObject
             if (e.PropertyName == nameof(GameRowViewModel.IsSelected)) RaiseCommandStates();
         };
         row.Recompute(CurrentCountsPer360());
-        Games.Add(row);
+        return row;
     }
+
+    private void AddGameRow(DetectedGame game) => Games.Add(MakeRow(game));
 
     private async Task ScanAsync()
     {
@@ -292,7 +344,7 @@ public sealed class MainViewModel : ObservableObject
 
             Games.Clear();
             foreach (var g in found) AddGameRow(g);
-            foreach (var g in _customGames) AddGameRow(g);   // keep manually-added games in the list
+            IntegrateCustomGames();   // upgrade matching rows / add manually-added games
 
             RecomputeAll();
 

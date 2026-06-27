@@ -22,14 +22,19 @@ public partial class AddGameWindow : Window
     private bool _isGvas;
     private GvasMapInfo? _gvas;
 
-    // Confirmed detection
-    private bool _confirmed;
-    private AutoApplyMode _mode = AutoApplyMode.None;
-    private string _template = "";
-    private string _optionKey = "";
-    private GvasValueKind _gvasKind = GvasValueKind.Unknown;
+    /// <summary>The write targets confirmed via Detect (a config can have several sensitivities).</summary>
+    private readonly List<SensitivityTarget> _targets = [];
 
-    public AddGameWindow() => InitializeComponent();
+    public AddGameWindow(string? prefillName = null, string? prefillFolder = null)
+    {
+        InitializeComponent();
+        if (!string.IsNullOrWhiteSpace(prefillName))
+        {
+            TxtName.Text = prefillName;
+            ChkAuto.IsChecked = true;          // adding a config => reveal the auto-apply panel
+        }
+        if (!string.IsNullOrWhiteSpace(prefillFolder)) _folder = prefillFolder!;
+    }
 
     private void OnToggleAuto(object sender, RoutedEventArgs e)
         => PanelAuto.Visibility = ChkAuto.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
@@ -45,7 +50,7 @@ public partial class AddGameWindow : Window
         if (!string.IsNullOrWhiteSpace(_folder) && Directory.Exists(_folder)) dlg.InitialDirectory = _folder;
         if (dlg.ShowDialog(this) != true) return;
 
-        ResetDetection();
+        ClearTargets();
         _folder = Path.GetDirectoryName(dlg.FileName) ?? "";
         _file = Path.GetFileName(dlg.FileName);
         TxtFile.Text = dlg.FileName;
@@ -55,15 +60,14 @@ public partial class AddGameWindow : Window
             var bytes = File.ReadAllBytes(dlg.FileName);
             if (GvasMapReader.IsGvas(bytes))
             {
+                _isGvas = true;
                 _gvas = GvasMapReader.TryParse(bytes);
                 if (_gvas is null)
                 {
-                    _isGvas = true;
                     TxtEditor.Text = "(This .sav is GVAS but its layout isn't supported for auto-apply.)";
                     Error("Couldn't parse this save's settings map. You can still add it as convert-only.");
                     return;
                 }
-                _isGvas = true;
                 TxtEditor.Text = string.Join("\r\n", _gvas.Entries.Select(en => $"{en.Key} = {en.Value}"));
             }
             else
@@ -73,7 +77,6 @@ public partial class AddGameWindow : Window
                 TxtEditor.Text = File.ReadAllText(dlg.FileName);
             }
             Error("");
-            // After layout settles, jump to and highlight the sensitivity value.
             Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(AutoFindSensitivity));
         }
         catch (Exception ex)
@@ -82,10 +85,7 @@ public partial class AddGameWindow : Window
         }
     }
 
-    /// <summary>
-    /// Find "Sensitivity" in the loaded file, select the number on that line, scroll it into view and
-    /// pulse the selection so the user sees where to confirm.
-    /// </summary>
+    /// <summary>Find "Sensitivity", select the value, scroll to it and pulse the selection.</summary>
     private void AutoFindSensitivity()
     {
         if (!SensitivityHighlight.TryFindSensitivitySpan(TxtEditor.Text, out var selStart, out var selLen))
@@ -97,7 +97,6 @@ public partial class AddGameWindow : Window
         if (lineIndex >= 0) TxtEditor.ScrollToLine(lineIndex);
         TxtEditor.Focus();
 
-        // Quick highlight pulse on the selection.
         var pulse = new DoubleAnimation
         {
             From = 1.0,
@@ -124,21 +123,15 @@ public partial class AddGameWindow : Window
             return;
         }
 
-        var kindWord = SensitivityHighlight.Classify(value) ?? "number";
-        if (!Confirm(value, kindWord)) return;
-
-        _mode = AutoApplyMode.TextTemplate;
-        _template = template;
-        _confirmed = true;
-        LblDetect.Text = $"Will set: {template}";
+        if (!Confirm(value, SensitivityHighlight.Classify(value) ?? "number")) return;
+        AddTarget(new SensitivityTarget { Mode = AutoApplyMode.TextTemplate, SensitivityLine = template });
     }
 
     private void DetectGvas()
     {
         if (_gvas is null) { Error("No parsed save loaded."); return; }
 
-        var caret = TxtEditor.SelectionStart;
-        var lineIndex = CountLines(TxtEditor.Text, caret);
+        var lineIndex = CountLines(TxtEditor.Text, TxtEditor.SelectionStart);
         if (lineIndex < 0 || lineIndex >= _gvas.Entries.Count)
         {
             Error("Click the line with the sensitivity value, then Detect.");
@@ -153,13 +146,44 @@ public partial class AddGameWindow : Window
         }
 
         if (!Confirm(entry.Value, _gvas.ValueKind.Word())) return;
-
-        _gvasKind = _gvas.ValueKind;
-        _mode = _gvasKind == GvasValueKind.Str ? AutoApplyMode.GvasString : AutoApplyMode.GvasNumeric;
-        _optionKey = entry.Key;
-        _confirmed = true;
-        LblDetect.Text = $"Will set: {entry.Key}  ({_gvasKind.Word()})";
+        AddTarget(new SensitivityTarget
+        {
+            Mode = _gvas.ValueKind == GvasValueKind.Str ? AutoApplyMode.GvasString : AutoApplyMode.GvasNumeric,
+            OptionKey = entry.Key,
+            GvasKind = _gvas.ValueKind,
+        });
     }
+
+    private void AddTarget(SensitivityTarget target)
+    {
+        var label = target.Describe();
+        if (_targets.Any(t => t.Describe() == label))
+        {
+            LblDetect.Text = "Already added.";
+            return;
+        }
+        _targets.Add(target);
+        LblDetect.Text = "Added.";
+        RefreshTargets();
+    }
+
+    private void OnClearTargets(object sender, RoutedEventArgs e)
+    {
+        ClearTargets();
+        LblDetect.Text = "Cleared.";
+    }
+
+    private void ClearTargets()
+    {
+        _targets.Clear();
+        RefreshTargets();
+    }
+
+    private void RefreshTargets()
+        => LblTargets.Text = _targets.Count == 0
+            ? ""
+            : $"Will write {_targets.Count} value(s):\r\n"
+              + string.Join("\r\n", _targets.Select(t => "  • " + t.Describe()));
 
     private bool Confirm(string value, string kindWord)
         => MessageBox.Show(this,
@@ -185,28 +209,15 @@ public partial class AddGameWindow : Window
         if (ChkAuto.IsChecked == true)
         {
             if (string.IsNullOrEmpty(_file)) { Error("Choose the save/config file, or turn off auto-apply."); return; }
-            if (!_confirmed) { Error("Highlight the sensitivity value and confirm it with Detect."); return; }
+            if (_targets.Count == 0) { Error("Highlight each sensitivity value and confirm it with Detect."); return; }
 
             game.ConfigFolder = _folder;
             game.ConfigFile = _file;
-            game.Mode = _mode;
-            game.SensitivityLine = _template;
-            game.OptionKey = _optionKey;
-            game.GvasKind = _gvasKind;
+            game.Targets = [.. _targets];
         }
 
         Result = game;
         DialogResult = true;
-    }
-
-    private void ResetDetection()
-    {
-        _confirmed = false;
-        _mode = AutoApplyMode.None;
-        _template = "";
-        _optionKey = "";
-        _gvasKind = GvasValueKind.Unknown;
-        LblDetect.Text = "";
     }
 
     /// <summary>Zero-based index of the line containing <paramref name="caret"/>.</summary>

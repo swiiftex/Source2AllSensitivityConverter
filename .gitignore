@@ -4,4 +4,5 @@ publish/
 publish_test/
 *.user
 .vs/
+.idea/
 *.zip

@@ -1,6 +1,10 @@
 using System.Globalization;
 using System.IO;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Media.Animation;
+using System.Windows.Threading;
 using Microsoft.Win32;
 using Source2AllSensitivityConverter.Models;
 using Source2AllSensitivityConverter.Services;
@@ -69,11 +73,40 @@ public partial class AddGameWindow : Window
                 TxtEditor.Text = File.ReadAllText(dlg.FileName);
             }
             Error("");
+            // After layout settles, jump to and highlight the sensitivity value.
+            Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(AutoFindSensitivity));
         }
         catch (Exception ex)
         {
             Error($"Could not read the file: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Find "Sensitivity" in the loaded file, select the number on that line, scroll it into view and
+    /// pulse the selection so the user sees where to confirm.
+    /// </summary>
+    private void AutoFindSensitivity()
+    {
+        if (!SensitivityHighlight.TryFindSensitivitySpan(TxtEditor.Text, out var selStart, out var selLen))
+            return;
+
+        TxtEditor.IsInactiveSelectionHighlightEnabled = true;
+        TxtEditor.Select(selStart, selLen);
+        var lineIndex = TxtEditor.GetLineIndexFromCharacterIndex(selStart);
+        if (lineIndex >= 0) TxtEditor.ScrollToLine(lineIndex);
+        TxtEditor.Focus();
+
+        // Quick highlight pulse on the selection.
+        var pulse = new DoubleAnimation
+        {
+            From = 1.0,
+            To = 0.15,
+            Duration = TimeSpan.FromMilliseconds(220),
+            AutoReverse = true,
+            RepeatBehavior = new RepeatBehavior(3),
+        };
+        TxtEditor.BeginAnimation(TextBoxBase.SelectionOpacityProperty, pulse);
     }
 
     private void OnDetect(object sender, RoutedEventArgs e)

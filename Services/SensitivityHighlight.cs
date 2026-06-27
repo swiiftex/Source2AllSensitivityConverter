@@ -11,6 +11,35 @@ public static partial class SensitivityHighlight
 {
     [GeneratedRegex(@"^-?\d+$")] private static partial Regex Integer();
     [GeneratedRegex(@"^-?\d*\.\d+$")] private static partial Regex Decimal();
+    [GeneratedRegex(@"-?\d+(\.\d+)?")] private static partial Regex NumberOnLine();
+
+    /// <summary>
+    /// Find the sensitivity value to pre-select when a file is opened: the first number on the line
+    /// containing "Sensitivity" (preferring "MouseSensitivity"), or the keyword itself if no number
+    /// is on that line. Returns false if "Sensitivity" doesn't appear at all.
+    /// </summary>
+    public static bool TryFindSensitivitySpan(string text, out int start, out int length)
+    {
+        start = 0;
+        length = 0;
+        if (string.IsNullOrEmpty(text)) return false;
+
+        var keyword = "MouseSensitivity";
+        var idx = text.IndexOf(keyword, StringComparison.OrdinalIgnoreCase);
+        if (idx < 0) { keyword = "Sensitivity"; idx = text.IndexOf(keyword, StringComparison.OrdinalIgnoreCase); }
+        if (idx < 0) return false;
+
+        var lineStart = text.LastIndexOf('\n', Math.Max(0, idx - 1)) + 1;
+        var lineEnd = text.IndexOf('\n', idx);
+        if (lineEnd < 0) lineEnd = text.Length;
+
+        var keywordInLine = idx - lineStart;
+        var rest = text[(lineStart + keywordInLine)..lineEnd];
+        var m = NumberOnLine().Match(rest);
+        if (m.Success) { start = lineStart + keywordInLine + m.Index; length = m.Length; }
+        else { start = idx; length = keyword.Length; }   // no number on the line -> select the keyword
+        return true;
+    }
 
     /// <summary>"integer" / "decimal", or null if the text isn't a plain number.</summary>
     public static string? Classify(string selection)

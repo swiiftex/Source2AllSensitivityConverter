@@ -4,6 +4,15 @@ using System.IO;
 
 namespace Source2AllSensitivityConverter.Models;
 
+/// <summary>How a manually-added game's config gets written.</summary>
+public enum AutoApplyMode
+{
+    None,          // convert-only
+    TextTemplate,  // plain-text config; a {value} line template
+    GvasString,    // GVAS .sav map value stored as text
+    GvasNumeric,   // GVAS .sav map value stored as Int/Float/Double
+}
+
 /// <summary>
 /// A game the user added manually through the "Manually add game" dialog. Persisted in settings and
 /// turned into a live <see cref="GameDefinition"/> / <see cref="DetectedGame"/> at runtime.
@@ -18,27 +27,55 @@ public sealed class CustomGame
     public string ConfigFolder { get; set; } = "";
     public string ConfigFile { get; set; } = "";
 
-    /// <summary>One-line template with a <c>{value}</c> placeholder, e.g. <c>sensitivity "{value}"</c>.</summary>
+    public AutoApplyMode Mode { get; set; } = AutoApplyMode.None;
+
+    /// <summary>Text-template mode: a one-line template with a <c>{value}</c> placeholder.</summary>
     public string SensitivityLine { get; set; } = "";
+
+    /// <summary>GVAS modes: the map key whose value holds the sensitivity.</summary>
+    public string OptionKey { get; set; } = "";
+
+    /// <summary>GVAS-numeric mode: how the value is stored.</summary>
+    public GvasValueKind GvasKind { get; set; } = GvasValueKind.Unknown;
 
     public string FullConfigPath => Path.Combine(ConfigFolder, ConfigFile);
 
-    /// <summary>yaw such that <see cref="EquivalentOfCs1"/> maps to Source/CS2 sensitivity 1.0.</summary>
-    public double Yaw => SensitivityConverter.SourceYaw / EquivalentOfCs1;
+    private bool HasFile =>
+        !string.IsNullOrWhiteSpace(ConfigFolder) && !string.IsNullOrWhiteSpace(ConfigFile);
 
-    /// <summary>True when the config folder/file/line are all set, enabling auto-apply.</summary>
-    public bool HasAutoApply =>
-        !string.IsNullOrWhiteSpace(ConfigFolder)
-        && !string.IsNullOrWhiteSpace(ConfigFile)
-        && !string.IsNullOrWhiteSpace(SensitivityLine);
+    /// <summary>Resolve the effective mode, inferring TextTemplate for older saved entries.</summary>
+    private AutoApplyMode EffectiveMode
+    {
+        get
+        {
+            if (Mode != AutoApplyMode.None) return Mode;
+            return HasFile && !string.IsNullOrWhiteSpace(SensitivityLine)
+                ? AutoApplyMode.TextTemplate
+                : AutoApplyMode.None;
+        }
+    }
+
+    public double Yaw => SensitivityConverter.SourceYaw / EquivalentOfCs1;
 
     public GameDefinition ToDefinition() => new()
     {
         Name = Name,
         Engine = Engine.Other,
         YawConstant = EquivalentOfCs1 > 0 ? Yaw : null,
-        Applier = HasAutoApply ? new TemplateApplier(FullConfigPath, SensitivityLine) : null,
+        Applier = BuildApplier(),
     };
+
+    private IConfigApplier? BuildApplier()
+    {
+        if (!HasFile) return null;
+        return EffectiveMode switch
+        {
+            AutoApplyMode.TextTemplate => new TemplateApplier(FullConfigPath, SensitivityLine),
+            AutoApplyMode.GvasString => new GvasStringMapApplier(_ => FullConfigPath, OptionKey),
+            AutoApplyMode.GvasNumeric => new GvasMapNumericApplier(_ => FullConfigPath, OptionKey, GvasKind),
+            _ => null,
+        };
+    }
 
     public DetectedGame ToDetectedGame()
     {

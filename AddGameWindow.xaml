@@ -1,8 +1,8 @@
 <Window x:Class="Source2AllSensitivityConverter.AddGameWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Manually add game" Height="560" Width="560"
-        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        Title="Manually add game" Height="720" Width="600"
+        WindowStartupLocation="CenterOwner" ResizeMode="CanResize" MinWidth="520" MinHeight="560"
         Background="{StaticResource WindowBrush}" FontFamily="Segoe UI" FontSize="13"
         TextOptions.TextFormattingMode="Ideal">
     <Grid Margin="18">
@@ -10,24 +10,20 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Text="Add a game" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,4"/>
-        <TextBlock Grid.Row="1" Foreground="{StaticResource SubTextBrush}" TextWrapping="Wrap" Margin="0,0,0,14"
-                   Text="Define a game's sensitivity scale and (optionally) where its config lives. It's saved and appears in the dropdowns and the Auto-apply list."/>
+        <TextBlock Grid.Row="0" Text="Add a game" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>
 
-        <!-- General settings -->
-        <Border Grid.Row="2" Background="{StaticResource SurfaceBrush}" CornerRadius="10"
+        <!-- General -->
+        <Border Grid.Row="1" Background="{StaticResource SurfaceBrush}" CornerRadius="10"
                 BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="16" Margin="0,0,0,12">
             <StackPanel>
                 <TextBlock Text="General" FontWeight="SemiBold" Margin="0,0,0,10"/>
-
                 <TextBlock Text="Game name" Foreground="{StaticResource SubTextBrush}" Margin="0,0,0,4"/>
                 <TextBox x:Name="TxtName" Margin="0,0,0,12"/>
-
                 <TextBlock Text="This game's sensitivity that feels like CS2 / Source sens 1.0"
                            Foreground="{StaticResource SubTextBrush}" Margin="0,0,0,4"/>
                 <TextBox x:Name="TxtEquiv" Text="1.0" Width="120" HorizontalAlignment="Left"/>
@@ -36,37 +32,50 @@
             </StackPanel>
         </Border>
 
-        <!-- Auto-apply settings -->
-        <Border Grid.Row="3" Background="{StaticResource SurfaceBrush}" CornerRadius="10"
-                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="16">
-            <StackPanel>
-                <TextBlock Text="Auto-apply (optional)" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                <TextBlock Foreground="{StaticResource SubTextBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,10"
-                           Text="Fill these in to let the app write the config for you. Leave blank to make it convert-only."/>
+        <!-- Enable auto-apply -->
+        <CheckBox x:Name="ChkAuto" Grid.Row="2" Content="Enable auto-apply (write this game's config for you)"
+                  Margin="2,0,0,10" Checked="OnToggleAuto" Unchecked="OnToggleAuto"/>
 
-                <TextBlock Text="Config folder" Foreground="{StaticResource SubTextBrush}" Margin="0,0,0,4"/>
-                <Grid Margin="0,0,0,12">
+        <!-- Auto-apply panel -->
+        <Border x:Name="PanelAuto" Grid.Row="3" Visibility="Collapsed"
+                Background="{StaticResource SurfaceBrush}" CornerRadius="10"
+                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="16">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Text="Save / config file" Foreground="{StaticResource SubTextBrush}" Margin="0,0,0,4"/>
+                <Grid Grid.Row="1" Margin="0,0,0,12">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <TextBox x:Name="TxtFolder" Grid.Column="0"/>
-                    <Button x:Name="BtnBrowse" Grid.Column="1" Content="Browse…" Margin="8,0,0,0"
-                            Click="OnBrowse"/>
+                    <TextBox x:Name="TxtFile" Grid.Column="0" IsReadOnly="True"/>
+                    <Button x:Name="BtnBrowse" Grid.Column="1" Content="Browse…" Margin="8,0,0,0" Click="OnBrowse"/>
                 </Grid>
 
-                <TextBlock Text="File to edit" Foreground="{StaticResource SubTextBrush}" Margin="0,0,0,4"/>
-                <TextBox x:Name="TxtFile" Margin="0,0,0,12"/>
+                <TextBlock Grid.Row="2" TextWrapping="Wrap" Margin="0,0,0,6"
+                           Foreground="{StaticResource SubTextBrush}" FontSize="11"
+                           Text="Highlight exactly the sensitivity number below (drag-select it), then click Detect. For .sav files the settings are shown as key = value lines."/>
 
-                <TextBlock Text="Sensitivity line" Foreground="{StaticResource SubTextBrush}" Margin="0,0,0,4"/>
-                <TextBox x:Name="TxtLine"/>
-                <TextBlock Foreground="{StaticResource SubTextBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"
-                           Text="Use {value} where the number goes. Examples:  sensitivity &quot;{value}&quot;   ·   Sensitivity={value}   ·   seta sensitivity &quot;{value}&quot;   ·   mouseSensitivity:{value}"/>
-            </StackPanel>
+                <TextBox x:Name="TxtEditor" Grid.Row="3" IsReadOnly="True" AcceptsReturn="True"
+                         VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                         FontFamily="Cascadia Mono, Consolas" FontSize="12" MinHeight="180"/>
+
+                <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,10,0,0">
+                    <Button Content="Detect from highlight" Click="OnDetect" MinWidth="150"/>
+                    <TextBlock x:Name="LblDetect" VerticalAlignment="Center" Margin="12,0,0,0"
+                               Foreground="{StaticResource AccentBrush}" TextWrapping="Wrap"/>
+                </StackPanel>
+            </Grid>
         </Border>
 
-        <TextBlock x:Name="LblError" Grid.Row="4" Foreground="#E06C75" TextWrapping="Wrap"
-                   VerticalAlignment="Bottom" Margin="2,10,2,0"/>
+        <TextBlock x:Name="LblError" Grid.Row="4" Foreground="#E06C75" TextWrapping="Wrap" Margin="2,10,2,0"/>
 
         <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
             <Button Content="Cancel" MinWidth="90" Click="OnCancel"/>

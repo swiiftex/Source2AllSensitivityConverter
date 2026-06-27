@@ -26,7 +26,7 @@ public sealed class GameRowViewModel(DetectedGame game) : ObservableObject
 
     public string StoreText => Game.Store.ToString();
 
-    public string EngineText => Game.DetectedEngine.ToString();
+    public string EngineText => EngineNames.Display(Game.DetectedEngine);
 
     private double? _convertedSensitivity;
     public double? ConvertedSensitivity

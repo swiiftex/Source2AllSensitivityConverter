@@ -268,11 +268,13 @@ public static class GameCatalog
             },
             new GameDefinition
             {
-                // CS 1.0 == 22 in The Finals, so yaw = 0.001 (user-verified).
+                // CS 1.0 == 22 in The Finals, so yaw = 0.001 (user-verified). Settings live in a UE
+                // GVAS save (Map<Name,Str>) -> written by GvasStringMapApplier.
                 Name = "The Finals", Engine = Engine.Unreal, YawConstant = srcYaw / 22.0,
                 SteamAppId = 2073850, InstallDirHints = ["the finals", "discovery"],
                 MarkerFiles = ["Discovery.exe", "Discovery"],
-                Applier = null,
+                Applier = new GvasStringMapApplier(
+                    UserConfigPaths.TheFinals, "GameplayOption.Controls.MouseSensitivity"),
             },
             new GameDefinition
             {

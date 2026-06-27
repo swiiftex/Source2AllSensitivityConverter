@@ -49,6 +49,9 @@ public static class UserConfigPaths
     public static string Mordhau(string _) =>
         LocalAppData("Mordhau", "Saved", "Config", "WindowsClient", "Input.ini");
 
+    public static string TheFinals(string _) =>
+        LocalAppData("Discovery", "Saved", "SaveGames", "EmbarkOptionSaveGame.sav");
+
     public static string MinecraftOptions(string installPath) =>
         // The scanner passes the .minecraft folder as the install path; options.txt sits inside it.
         string.IsNullOrEmpty(installPath)

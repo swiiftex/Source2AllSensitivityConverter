@@ -9,38 +9,64 @@ namespace Source2AllSensitivityConverter.ViewModels;
 public sealed class MainViewModel : ObservableObject
 {
     private readonly InstalledGameScanner _scanner = new();
+    private readonly AppSettings _settings;
 
     public ObservableCollection<GameRowViewModel> Games { get; } = [];
+
+    /// <summary>Convertible catalog games plus any the user added manually (the dropdown source).</summary>
+    public ObservableCollection<SourceOption> SourceOptions { get; } = [];
 
     public RelayCommand ScanCommand { get; }
     public RelayCommand DetectCommand { get; }
     public RelayCommand ApplyCommand { get; }
     public RelayCommand SelectAllCommand { get; }
     public RelayCommand SelectNoneCommand { get; }
+    public RelayCommand CopyConvertCommand { get; }
+    public RelayCommand CopySelectedCommand { get; }
 
     public MainViewModel()
     {
-        // Default the source dropdown to Counter-Strike 2 (the canonical Source reference).
-        _selectedSource = SourceOptions.FirstOrDefault(o => o.Game.Name == "Counter-Strike 2")
-                          ?? SourceOptions[0];
+        _settings = SettingsStore.Load();
+
+        foreach (var g in GameCatalog.All.Where(g => g.CanConvert).OrderBy(g => g.Name, StringComparer.OrdinalIgnoreCase))
+            SourceOptions.Add(new SourceOption(g));
+
+        // Restore manually-added games into the dropdown.
+        foreach (var cg in _settings.CustomGames)
+            EnsureSourceOption(cg.Name, cg.ToDefinition());
+
+        // Convert tab: restore the most recently used game/sensitivity, with sensible defaults.
+        _convertFrom = FindOption(_settings.FromGame) ?? FindOption("Counter-Strike 2") ?? SourceOptions[0];
+        _convertTo = FindOption(_settings.ToGame) ?? FindOption("VALORANT") ?? SourceOptions[0];
+        _convertSensitivityText = _settings.Sensitivity ?? "1.0";
+
+        // Auto-apply tab: restore the last-used input so the user can quickly apply to another game.
+        _selectedSource = FindOption(_settings.AutoFromGame) ?? _convertFrom;
+        _sourceSensitivityText = _settings.AutoSensitivity ?? _convertSensitivityText;
+        _inputByCm360 = _settings.AutoByCm360;
+        _cm360Text = _settings.Cm360 ?? "30";
+        _dpiText = _settings.Dpi ?? "800";
 
         ScanCommand = new RelayCommand(async () => await ScanAsync(), () => !IsBusy);
         DetectCommand = new RelayCommand(DetectSourceSensitivity, () => !IsBusy && Games.Count > 0);
         ApplyCommand = new RelayCommand(ApplyToSelected, () => !IsBusy && HasSelection && IsInputValid);
         SelectAllCommand = new RelayCommand(() => SetAllSelected(true), () => !IsBusy);
         SelectNoneCommand = new RelayCommand(() => SetAllSelected(false), () => !IsBusy);
+        CopyConvertCommand = new RelayCommand(CopyConvertOutput, () => ConvertOutput.Length > 0);
+        CopySelectedCommand = new RelayCommand(CopySelectedOutput,
+            () => !string.IsNullOrEmpty(SelectedRow?.OutputValue));
 
+        // Show manually-added games immediately (before any scan).
+        IntegrateCustomGames();
+
+        RecomputeConvert();
         OnInputChanged();
     }
 
-    // ---- input: either a game's sensitivity, or a cm/360 + DPI ----
+    private SourceOption? FindOption(string? name)
+        => name is null ? null : SourceOptions.FirstOrDefault(o => o.Game.Name == name);
 
-    /// <summary>All convertible catalog games, offered as the "input is from this game" source.</summary>
-    public IReadOnlyList<SourceOption> SourceOptions { get; } =
-        GameCatalog.All.Where(g => g.CanConvert)
-            .OrderBy(g => g.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(g => new SourceOption(g))
-            .ToList();
+    // ---- input: either a game's sensitivity, or a cm/360 + DPI ----
 
     private SourceOption _selectedSource;
     public SourceOption SelectedSource
@@ -98,6 +124,164 @@ public sealed class MainViewModel : ObservableObject
         private set => SetField(ref _inputSummary, value);
     }
 
+    // ---- Convert tab: a simple "from game + sensitivity -> to game" calculator ----
+
+    private SourceOption _convertFrom;
+    public SourceOption ConvertFrom
+    {
+        get => _convertFrom;
+        set { if (SetField(ref _convertFrom, value)) RecomputeConvert(); }
+    }
+
+    private SourceOption _convertTo;
+    public SourceOption ConvertTo
+    {
+        get => _convertTo;
+        set { if (SetField(ref _convertTo, value)) RecomputeConvert(); }
+    }
+
+    private string _convertSensitivityText;
+    public string ConvertSensitivityText
+    {
+        get => _convertSensitivityText;
+        set { if (SetField(ref _convertSensitivityText, value)) RecomputeConvert(); }
+    }
+
+    private string _convertOutput = "";
+    public string ConvertOutput
+    {
+        get => _convertOutput;
+        private set
+        {
+            if (SetField(ref _convertOutput, value))
+            {
+                OnPropertyChanged(nameof(HasConvertOutput));
+                CopyConvertCommand.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
+    public bool HasConvertOutput => _convertOutput.Length > 0;
+
+    private string _convertNote = "";
+    public string ConvertNote
+    {
+        get => _convertNote;
+        private set => SetField(ref _convertNote, value);
+    }
+
+    private void RecomputeConvert()
+    {
+        if (TryParse(_convertSensitivityText, out var sens) && sens > 0
+            && _convertFrom is not null && _convertTo is not null)
+        {
+            var counts = SensitivityConverter.CountsPer360(sens, _convertFrom.Yaw);
+            var result = SensitivityConverter.SensitivityFromCounts(counts, _convertTo.Yaw);
+            ConvertOutput = result.ToString("0.######", CultureInfo.InvariantCulture);
+            var approx = _convertTo.Game.ApproximateYaw ? "approx. " : "";
+            ConvertNote = $"{approx}{counts:0} counts/360  ·  {SensitivityConverter.CmPer360(counts, 800):0.0} cm/360 @ 800 DPI";
+        }
+        else
+        {
+            ConvertOutput = "";
+            ConvertNote = "Enter a valid sensitivity.";
+        }
+
+        _settings.FromGame = _convertFrom?.Game.Name;
+        _settings.ToGame = _convertTo?.Game.Name;
+        _settings.Sensitivity = _convertSensitivityText;
+        SettingsStore.Save(_settings);
+    }
+
+    private void CopyConvertOutput()
+    {
+        if (_convertOutput.Length == 0) return;
+        ConvertNote = ClipboardHelper.TrySetText(_convertOutput)
+            ? $"Copied {_convertOutput} to clipboard."
+            : "Could not access the clipboard — try again.";
+    }
+
+    private void CopySelectedOutput()
+    {
+        var value = SelectedRow?.OutputValue;
+        if (string.IsNullOrEmpty(value)) return;
+        StatusMessage = ClipboardHelper.TrySetText(value)
+            ? $"Copied {value} to clipboard."
+            : "Could not access the clipboard — try again.";
+    }
+
+    // ---- manually-added games ----
+
+    /// <summary>True when the selected game has no auto-apply yet (so a config can be added for it).</summary>
+    public bool CanAddConfigForSelected => SelectedRow is { } r && !r.Game.CanAutoApply;
+
+    /// <summary>
+    /// Persist a user-defined game and apply it to the list. If a game with the same name is already
+    /// shown (e.g. an unsupported scanned game), its row is upgraded in place instead of duplicated.
+    /// </summary>
+    public void AddCustomGame(CustomGame game)
+    {
+        _settings.CustomGames.RemoveAll(c => NameEquals(c.Name, game.Name));
+        _settings.CustomGames.Add(game);
+        SettingsStore.Save(_settings);
+
+        var def = game.ToDefinition();
+        var existing = Games.FirstOrDefault(r => NameEquals(r.DisplayName, game.Name));
+        if (existing is not null)
+            ReplaceRow(existing, Merge(existing.Game, def));
+        else
+            AddGameRow(game.ToDetectedGame());
+
+        EnsureSourceOption(game.Name, def);
+        StatusMessage = $"Added \"{game.Name}\" — its conversion now shows in the list.";
+    }
+
+    /// <summary>Merge custom games into the current list: upgrade matching rows, add the rest.</summary>
+    private void IntegrateCustomGames()
+    {
+        foreach (var cg in _settings.CustomGames)
+        {
+            var def = cg.ToDefinition();
+            var existing = Games.FirstOrDefault(r => NameEquals(r.DisplayName, cg.Name));
+            if (existing is not null)
+                ReplaceRow(existing, Merge(existing.Game, def));
+            else
+                AddGameRow(cg.ToDetectedGame());
+        }
+    }
+
+    /// <summary>Attach a custom definition to an existing detected game, keeping its store/engine/path.</summary>
+    private static DetectedGame Merge(DetectedGame existing, GameDefinition def) => new()
+    {
+        DisplayName = existing.DisplayName,
+        InstallPath = existing.InstallPath,
+        Store = existing.Store,
+        Definition = def,
+        DetectedEngine = existing.DetectedEngine != Engine.Unknown ? existing.DetectedEngine : Engine.Other,
+    };
+
+    private void ReplaceRow(GameRowViewModel oldRow, DetectedGame replacement)
+    {
+        var index = Games.IndexOf(oldRow);
+        if (index < 0) { AddGameRow(replacement); return; }
+
+        var wasSelected = ReferenceEquals(SelectedRow, oldRow);
+        var row = MakeRow(replacement);
+        Games[index] = row;
+        if (wasSelected) SelectedRow = row;
+    }
+
+    private void EnsureSourceOption(string name, GameDefinition def)
+    {
+        for (var i = SourceOptions.Count - 1; i >= 0; i--)
+            if (NameEquals(SourceOptions[i].Game.Name, name))
+                SourceOptions.RemoveAt(i);
+
+        if (def.CanConvert) SourceOptions.Add(new SourceOption(def));
+    }
+
+    private static bool NameEquals(string a, string b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+
     // ---- state ----
 
     private bool _isBusy;
@@ -110,7 +294,7 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
-    private string _statusMessage = "Click \"Scan for games\" to begin.";
+    private string _statusMessage = "Scanning for installed games…";
     public string StatusMessage
     {
         get => _statusMessage;
@@ -124,7 +308,11 @@ public sealed class MainViewModel : ObservableObject
         set
         {
             if (SetField(ref _selectedRow, value))
+            {
                 OnPropertyChanged(nameof(SelectedDetails));
+                OnPropertyChanged(nameof(CanAddConfigForSelected));
+                CopySelectedCommand.RaiseCanExecuteChanged();
+            }
         }
     }
 
@@ -135,6 +323,20 @@ public sealed class MainViewModel : ObservableObject
 
     // ---- actions ----
 
+    /// <summary>Create a list row for a detected game, wire selection updates, and compute its value.</summary>
+    private GameRowViewModel MakeRow(DetectedGame game)
+    {
+        var row = new GameRowViewModel(game);
+        row.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(GameRowViewModel.IsSelected)) RaiseCommandStates();
+        };
+        row.Recompute(CurrentCountsPer360());
+        return row;
+    }
+
+    private void AddGameRow(DetectedGame game) => Games.Add(MakeRow(game));
+
     private async Task ScanAsync()
     {
         IsBusy = true;
@@ -144,15 +346,8 @@ public sealed class MainViewModel : ObservableObject
             var found = await Task.Run(() => _scanner.Scan());
 
             Games.Clear();
-            foreach (var g in found)
-            {
-                var row = new GameRowViewModel(g);
-                row.PropertyChanged += (_, e) =>
-                {
-                    if (e.PropertyName == nameof(GameRowViewModel.IsSelected)) RaiseCommandStates();
-                };
-                Games.Add(row);
-            }
+            foreach (var g in found) AddGameRow(g);
+            IntegrateCustomGames();   // upgrade matching rows / add manually-added games
 
             RecomputeAll();
 
@@ -237,6 +432,18 @@ public sealed class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(IsInputValid));
         OnPropertyChanged(nameof(SelectedDetails));
         RaiseCommandStates();
+        PersistInput();
+    }
+
+    /// <summary>Remember the Auto-apply tab's input between runs.</summary>
+    private void PersistInput()
+    {
+        _settings.AutoFromGame = _selectedSource?.Game.Name;
+        _settings.AutoSensitivity = _sourceSensitivityText;
+        _settings.AutoByCm360 = _inputByCm360;
+        _settings.Cm360 = _cm360Text;
+        _settings.Dpi = _dpiText;
+        SettingsStore.Save(_settings);
     }
 
     private void RecomputeAll() => OnInputChanged();
@@ -283,6 +490,7 @@ public sealed class MainViewModel : ObservableObject
             ApplyCommand.RaiseCanExecuteChanged();
             SelectAllCommand.RaiseCanExecuteChanged();
             SelectNoneCommand.RaiseCanExecuteChanged();
+            CopySelectedCommand.RaiseCanExecuteChanged();
         }
 
         var dispatcher = Application.Current?.Dispatcher;

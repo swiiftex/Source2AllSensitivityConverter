@@ -13,6 +13,22 @@ namespace Source2AllSensitivityConverter.Services;
 /// </summary>
 public static class GameCatalog
 {
+    /// <summary>
+    /// Early IW-engine Call of Duty games keep settings in players/config.cfg (singleplayer) and
+    /// players/config_mp.cfg (multiplayer) as <c>seta sensitivity "x"</c>. Write both; either may be
+    /// absent (the game creates them on first run). Declared before <see cref="All"/> so it is
+    /// initialised before <see cref="Build"/> runs.
+    /// </summary>
+    private static readonly IConfigApplier EarlyCodApplier = new CompositeApplier(
+        new IConfigApplier[]
+        {
+            new CvarApplier("players/config.cfg  (seta sensitivity)",
+                inst => System.IO.Path.Combine(inst, "players", "config.cfg"), "sensitivity", setaStyle: true),
+            new CvarApplier("players/config_mp.cfg  (seta sensitivity)",
+                inst => System.IO.Path.Combine(inst, "players", "config_mp.cfg"), "sensitivity", setaStyle: true),
+        },
+        requireAll: false);
+
     public static IReadOnlyList<GameDefinition> All { get; } = Build();
 
     private static List<GameDefinition> Build()
@@ -240,14 +256,36 @@ public static class GameCatalog
                 MarkerFiles = ["ModernWarfare.exe"],
                 Applier = null,
             },
+            // ---- Early IW-engine Call of Duty (CS 1.0 == 1, yaw 0.022): players/config[_mp].cfg ----
             new GameDefinition
             {
-                // CoD4 through Advanced Warfare (early IW engine, Quake-derived): CS 1.0 == 1, yaw 0.022.
-                Name = "Call of Duty 4: Modern Warfare (early IW engine)", Engine = Engine.CallOfDuty,
-                YawConstant = srcYaw / 1.0,
+                Name = "Call of Duty 4: Modern Warfare", Engine = Engine.CallOfDuty, YawConstant = srcYaw,
                 SteamAppId = 7940, InstallDirHints = ["call of duty 4"],
-                MarkerFiles = ["iw3mp.exe", "iw3sp.exe"],
-                Applier = null,
+                MarkerFiles = ["iw3mp.exe", "iw3sp.exe"], Applier = EarlyCodApplier,
+            },
+            new GameDefinition
+            {
+                Name = "Call of Duty: World at War", Engine = Engine.CallOfDuty, YawConstant = srcYaw,
+                SteamAppId = 10090, InstallDirHints = ["call of duty world at war", "world at war"],
+                MarkerFiles = ["CoDWaWmp.exe", "CoDWaW.exe"], Applier = EarlyCodApplier,
+            },
+            new GameDefinition
+            {
+                Name = "Call of Duty 2", Engine = Engine.CallOfDuty, YawConstant = srcYaw,
+                SteamAppId = 2620, InstallDirHints = ["call of duty 2"],
+                MarkerFiles = ["CoD2MP_s.exe", "CoD2SP_s.exe"], Applier = EarlyCodApplier,
+            },
+            new GameDefinition
+            {
+                Name = "Call of Duty: Modern Warfare 2 (2009)", Engine = Engine.CallOfDuty, YawConstant = srcYaw,
+                SteamAppId = 10180, InstallDirHints = ["call of duty modern warfare 2", "modern warfare 2"],
+                MarkerFiles = ["iw4mp.exe", "iw4sp.exe"], Applier = EarlyCodApplier,
+            },
+            new GameDefinition
+            {
+                Name = "Call of Duty: Modern Warfare 3 (2011)", Engine = Engine.CallOfDuty, YawConstant = srcYaw,
+                SteamAppId = 115300, InstallDirHints = ["call of duty modern warfare 3", "modern warfare 3"],
+                MarkerFiles = ["iw5mp.exe", "iw5sp.exe"], Applier = EarlyCodApplier,
             },
 
             // ---- Modern shooters: convertible for the calculator (cloud/unverified config -> no write) ----

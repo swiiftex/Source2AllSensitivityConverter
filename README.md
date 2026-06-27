@@ -92,6 +92,7 @@ value and set it in-game · **≈** = the conversion factor is a close approxima
 | Rainbow Six Siege | Unreal | `Documents/My Games/Rainbow Six - Siege/<id>/GameSettings.ini` `[INPUT]` |
 | Mordhau | Unreal | `AppData/Local/Mordhau/Saved/Config/WindowsClient/Input.ini` → MouseX/MouseY |
 | The Finals | Unreal | `AppData/Local/Discovery/Saved/SaveGames/EmbarkOptionSaveGame.sav` (GVAS binary save) |
+| CoD4 · World at War · CoD2 · Modern Warfare 2 (2009) · Modern Warfare 3 (2011) | early IW | `<install>/players/config.cfg` **and** `config_mp.cfg` → `seta sensitivity` |
 | Minecraft (Java) | — | `%APPDATA%/.minecraft/options.txt` → `mouseSensitivity` |
 
 ### Convert-only (copy the value into the game)
@@ -99,6 +100,13 @@ value and set it in-game · **≈** = the conversion factor is a close approxima
 VALORANT · Overwatch 2 ≈ · Fortnite · Marvel Rivals ≈ · Halo Infinite ≈ ·
 BattleBit Remastered ≈ · Chivalry 2 · Chivalry: Medieval Warfare · Ready or Not · ARC Raiders ·
 Rising Storm 2: Vietnam · PUBG (*no conversion — FOV/scope-dependent, listed for reference only*).
+
+Why these can't auto-apply:
+- **Overwatch 2** — the local `Documents/Overwatch/Settings/Settings_v0.ini` contains no sensitivity
+  key (verified); the value is stored on your Blizzard account, not on disk.
+- **Fortnite** — `ClientSettings.Sav` *is* a plain UE property blob (the sensitivity is a raw
+  `FloatProperty`, not encrypted), but Fortnite re-syncs settings from the cloud on launch, so local
+  edits get overwritten.
 
 ### Conversion families (one value covers the whole series)
 
@@ -115,15 +123,16 @@ the dropdown and the number applies to every title below it.
 - Call of Duty: Black Ops 6
 - Call of Duty: Black Ops 7
 
-**Classic Call of Duty (IW engine)** — pick *“Call of Duty 4: Modern Warfare (early IW engine)”* (yaw 0.022):
+**Classic Call of Duty (early IW engine, yaw 0.022)** — these **auto-apply** (each is its own catalog
+entry) by writing `seta sensitivity` to both `players/config.cfg` and `players/config_mp.cfg`:
 - Call of Duty 4: Modern Warfare
 - Call of Duty: World at War
+- Call of Duty 2
 - Call of Duty: Modern Warfare 2 (2009)
-- Call of Duty: Black Ops
 - Call of Duty: Modern Warfare 3 (2011)
-- Call of Duty: Black Ops II
-- Call of Duty: Ghosts
-- Call of Duty: Advanced Warfare
+
+Black Ops / Black Ops II / Ghosts / Advanced Warfare share the same 0.022 conversion but store settings
+in binary `.cgp`/`.dat` files rather than `config.cfg`, so they're convert-only for now.
 
 **Quake / id Tech** (yaw 0.022) — Quake · Quake II · Quake III Arena · Quake Live · Quake Champions ·
 Diabotical · Warsow / Xonotic all use the `sensitivity` cvar at `m_yaw 0.022`.

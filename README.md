@@ -17,8 +17,9 @@ games and sensitivity are remembered between runs (saved to `%APPDATA%\Source2Al
 
 1. Choose your input — a **game sensitivity** (pick the game + type the value, or **Detect from game**),
    or a raw **cm/360 + DPI**.
-2. **Scan for games** — reads each store's configs/registry to find installed games and their paths.
-   Unmatched installs get an engine guess from their on-disk file structure.
+2. The app **scans for installed games on startup** (and the **Scan for games** button re-scans on
+   demand) — reading each store's configs/registry to find games and their paths. Unmatched installs
+   get an engine guess from their on-disk file structure.
 3. **Check the games** you want and click **Apply to selected** — the converted value is written to each
    game's config. Every row also shows its value in a **read-only copy box**; games that can't be
    auto-applied are greyed for the checkbox but you can still copy their value and set it in-game.

@@ -4,7 +4,8 @@
         xmlns:vm="clr-namespace:Source2AllSensitivityConverter.ViewModels"
         Title="Sensitivity Converter" Height="700" Width="1000"
         WindowStartupLocation="CenterScreen" Background="{StaticResource WindowBrush}"
-        TextOptions.TextFormattingMode="Ideal" FontFamily="Segoe UI" FontSize="13">
+        TextOptions.TextFormattingMode="Ideal" FontFamily="Segoe UI" FontSize="13"
+        Loaded="OnLoaded">
     <Window.DataContext>
         <vm:MainViewModel/>
     </Window.DataContext>

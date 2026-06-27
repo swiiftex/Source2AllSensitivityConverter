@@ -233,7 +233,7 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
-    private string _statusMessage = "Click \"Scan for games\" to begin.";
+    private string _statusMessage = "Scanning for installed games…";
     public string StatusMessage
     {
         get => _statusMessage;

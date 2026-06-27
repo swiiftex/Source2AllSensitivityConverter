@@ -14,4 +14,8 @@ public sealed class SourceOption(GameDefinition game)
 
     /// <summary>Shown in the combo box — just the (already descriptive) game name, no raw enum.</summary>
     public string Display => Game.Name;
+
+    // Also drive the display via ToString so the combo box renders correctly even where the
+    // templated selection box doesn't honour DisplayMemberPath.
+    public override string ToString() => Display;
 }

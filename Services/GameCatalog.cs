@@ -258,35 +258,38 @@ public static class GameCatalog
             // ---- Early IW-engine Call of Duty (CS 1.0 == 1, yaw 0.022): players/config[_mp].cfg ----
             new GameDefinition
             {
+                // CoD4 (Steam): <install>/players/profiles/<profile>/config_mp.cfg
                 Name = "Call of Duty 4: Modern Warfare", Engine = Engine.CallOfDuty, YawConstant = srcYaw,
                 SteamAppId = 7940, InstallDirHints = ["call of duty 4"],
-                MarkerFiles = ["iw3mp.exe", "iw3sp.exe"], Applier = CodApplier("Call of Duty 4", "CallofDuty4"),
+                MarkerFiles = ["iw3mp.exe", "iw3sp.exe"], Applier = CodApplier(),
             },
             new GameDefinition
             {
+                // WaW: %LOCALAPPDATA%/Activision/CoDWaW/players/profiles/<profile>/config_mp.cfg
                 Name = "Call of Duty: World at War", Engine = Engine.CallOfDuty, YawConstant = srcYaw,
                 SteamAppId = 10090, InstallDirHints = ["call of duty world at war", "world at war"],
                 MarkerFiles = ["CoDWaWmp.exe", "CoDWaW.exe"], Applier = CodApplier("CoDWaW"),
             },
             new GameDefinition
             {
+                // CoD2: <install>/players/config.cfg
                 Name = "Call of Duty 2", Engine = Engine.CallOfDuty, YawConstant = srcYaw,
                 SteamAppId = 2620, InstallDirHints = ["call of duty 2"],
-                MarkerFiles = ["CoD2MP_s.exe", "CoD2SP_s.exe"], Applier = CodApplier("Call of Duty 2", "CallofDuty2"),
+                MarkerFiles = ["CoD2MP_s.exe", "CoD2SP_s.exe"], Applier = CodApplier(),
             },
             new GameDefinition
             {
+                // MW2 (2009): <install>/players/config_mp.cfg
                 Name = "Call of Duty: Modern Warfare 2 (2009)", Engine = Engine.CallOfDuty, YawConstant = srcYaw,
                 SteamAppId = 10180, InstallDirHints = ["call of duty modern warfare 2", "modern warfare 2"],
-                MarkerFiles = ["iw4mp.exe", "iw4sp.exe"],
-                Applier = CodApplier("Call of Duty Modern Warfare 2", "CallofDuty Modern Warfare 2"),
+                MarkerFiles = ["iw4mp.exe", "iw4sp.exe"], Applier = CodApplier(),
             },
             new GameDefinition
             {
+                // MW3 (2011): <install>/players2/config_mp.cfg
                 Name = "Call of Duty: Modern Warfare 3 (2011)", Engine = Engine.CallOfDuty, YawConstant = srcYaw,
                 SteamAppId = 115300, InstallDirHints = ["call of duty modern warfare 3", "modern warfare 3"],
-                MarkerFiles = ["iw5mp.exe", "iw5sp.exe"],
-                Applier = CodApplier("Call of Duty Modern Warfare 3", "CallofDuty Modern Warfare 3"),
+                MarkerFiles = ["iw5mp.exe", "iw5sp.exe"], Applier = CodApplier(),
             },
 
             // ---- Modern shooters: convertible for the calculator (cloud/unverified config -> no write) ----

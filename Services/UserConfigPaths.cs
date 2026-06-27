@@ -53,22 +53,37 @@ public static class UserConfigPaths
         LocalAppData("Discovery", "Saved", "SaveGames", "EmbarkOptionSaveGame.sav");
 
     /// <summary>
-    /// Locate a Call of Duty config file. Classic IW games (CoD4/CoD2) keep it in
-    /// <c>&lt;install&gt;/players/</c>; the WaW-era games keep per-profile configs in
-    /// <c>%LOCALAPPDATA%/Activision/&lt;folder&gt;/players/profiles/&lt;profile&gt;/</c>. We return the
-    /// first existing match (preferring the most recently used profile), or the install path as a
-    /// helpful default for the "launch the game once first" message.
+    /// Locate a Call of Duty config file. Confirmed layouts differ per game:
+    ///   CoD2  -> &lt;install&gt;/players/config.cfg
+    ///   CoD4  -> &lt;install&gt;/players/profiles/&lt;profile&gt;/config_mp.cfg
+    ///   MW2   -> &lt;install&gt;/players/config_mp.cfg
+    ///   MW3   -> &lt;install&gt;/players2/config_mp.cfg
+    ///   WaW   -> %LOCALAPPDATA%/Activision/CoDWaW/players/profiles/&lt;profile&gt;/config_mp.cfg
+    /// We search players and players2 under the install (and under any given Activision folders),
+    /// checking both the folder directly and a profiles/&lt;profile&gt; subfolder (most recent first),
+    /// and return the first existing match — or the install players path as a helpful default.
     /// </summary>
     public static string CodPlayersConfig(string installPath, string fileName, params string[] activisionFolders)
     {
-        var inInstall = Path.Combine(installPath, "players", fileName);
+        var bases = new List<string>
+        {
+            Path.Combine(installPath, "players"),
+            Path.Combine(installPath, "players2"),
+        };
+        foreach (var folder in activisionFolders)
+        {
+            bases.Add(LocalAppData("Activision", folder, "players"));
+            bases.Add(LocalAppData("Activision", folder, "players2"));
+        }
+
         try
         {
-            if (File.Exists(inInstall)) return inInstall;
-
-            foreach (var folder in activisionFolders)
+            foreach (var b in bases)
             {
-                var profiles = LocalAppData("Activision", folder, "players", "profiles");
+                var direct = Path.Combine(b, fileName);
+                if (File.Exists(direct)) return direct;
+
+                var profiles = Path.Combine(b, "profiles");
                 if (!Directory.Exists(profiles)) continue;
 
                 var hit = Directory.EnumerateDirectories(profiles)
@@ -79,7 +94,7 @@ public static class UserConfigPaths
             }
         }
         catch { /* fall through to default */ }
-        return inInstall;
+        return Path.Combine(installPath, "players", fileName);
     }
 
     public static string MinecraftOptions(string installPath) =>

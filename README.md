@@ -86,11 +86,12 @@ value and set it in-game · **≈** = the conversion factor is a close approxima
 | Rust | Unity | `<install>/cfg/client.cfg` → `input.sensitivity` |
 | Rainbow Six Siege | Unreal | `Documents/My Games/Rainbow Six - Siege/<id>/GameSettings.ini` `[INPUT]` |
 | Mordhau | Unreal | `AppData/Local/Mordhau/Saved/Config/WindowsClient/Input.ini` → MouseX/MouseY |
+| The Finals | Unreal | `AppData/Local/Discovery/Saved/SaveGames/EmbarkOptionSaveGame.sav` (GVAS binary save) |
 | Minecraft (Java) | — | `%APPDATA%/.minecraft/options.txt` → `mouseSensitivity` |
 
 ### Convert-only (copy the value into the game)
 
-VALORANT · Overwatch 2 ≈ · Fortnite · The Finals · Marvel Rivals ≈ · Halo Infinite ≈ ·
+VALORANT · Overwatch 2 ≈ · Fortnite · Marvel Rivals ≈ · Halo Infinite ≈ ·
 BattleBit Remastered ≈ · Chivalry 2 · Chivalry: Medieval Warfare · Ready or Not · ARC Raiders ·
 Rising Storm 2: Vietnam · PUBG (*no conversion — FOV/scope-dependent, listed for reference only*).
 
@@ -132,9 +133,11 @@ the file write. A one-time `*.s2a-backup` copy is made before any config is edit
 reversible. Rainbow Six is special-cased: its sensitivity is `MouseYawSensitivity × (MultiplierUnit/0.02)`,
 so the writer pins Yaw/Pitch to `50` and carries the exact value in the float `MouseSensitivityMultiplierUnit`.
 
-Writers are deliberately conservative: external configs are **only edited if they already exist** (launch
-the game once first), the value is replaced in place when present, and nothing is ever fabricated in a
-guessed location. Source/GoldSrc `autoexec.cfg` is the exception — it's created if missing because it runs
+Some games (e.g. The Finals) store settings in a binary Unreal **GVAS `.sav`** as a `Map<Name,Str>`;
+the writer edits the value string in place and adjusts the map's payload-size field so the save stays
+valid. Writers are deliberately conservative: external configs/saves are **only edited if they already
+exist** (launch the game once first), the value is replaced in place when present, and nothing is ever
+fabricated in a guessed location. Source/GoldSrc `autoexec.cfg` is the exception — it's created if missing because it runs
 on launch and overrides the managed config. Minecraft (which no store launcher reports) is detected
 directly from `%APPDATA%/.minecraft`.
 

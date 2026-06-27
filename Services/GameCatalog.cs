@@ -276,6 +276,24 @@ public static class GameCatalog
                 SteamAppId = 115300, InstallDirHints = ["call of duty modern warfare 3", "modern warfare 3"],
                 MarkerFiles = ["iw5mp.exe", "iw5sp.exe"], Applier = new CodSensitivityApplier(),
             },
+            new GameDefinition
+            {
+                // Black Ops III (yaw 0.022): plaintext <install>/players/config.ini -> MouseSensitivity = "x".
+                Name = "Call of Duty: Black Ops III", Engine = Engine.CallOfDuty, YawConstant = srcYaw,
+                SteamAppId = 311210, InstallDirHints = ["black ops iii", "black ops 3"],
+                MarkerFiles = ["BlackOps3.exe"],
+                Applier = new TemplateApplier(
+                    inst => System.IO.Path.Combine(inst, "players", "config.ini"),
+                    "MouseSensitivity = \"{value}\"", createIfMissing: false),
+            },
+            new GameDefinition
+            {
+                // Black Ops II (yaw 0.022): settings are in binary .cgp profiles -> convert-only.
+                Name = "Call of Duty: Black Ops II", Engine = Engine.CallOfDuty, YawConstant = srcYaw,
+                SteamAppId = 202970, InstallDirHints = ["black ops ii", "black ops 2"],
+                MarkerFiles = ["t6mp.exe", "t6sp.exe", "t6zm.exe"],
+                Applier = null,
+            },
 
             // ---- Modern shooters: convertible for the calculator (cloud/unverified config -> no write) ----
             new GameDefinition

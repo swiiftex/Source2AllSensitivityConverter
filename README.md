@@ -97,6 +97,7 @@ value and set it in-game · **≈** = the conversion factor is a close approxima
 | Modern Warfare 2 (2009) | early IW | `<install>/players/config[_mp].cfg` → `seta sensitivity` |
 | Modern Warfare 3 (2011) | early IW | `<install>/players2/config[_mp].cfg` → `seta sensitivity` |
 | World at War | early IW | `%LOCALAPPDATA%/Activision/CoDWaW/players/profiles/<profile>/config[_mp].cfg` → `seta sensitivity` |
+| Black Ops III | Treyarch | `<install>/players/config.ini` → `MouseSensitivity = "x"` |
 | Minecraft (Java) | — | `%APPDATA%/.minecraft/options.txt` → `mouseSensitivity` |
 
 ### Convert-only (copy the value into the game)
@@ -139,8 +140,10 @@ the sensitivity is written to every profile's config**. The resolver searches al
 - Call of Duty: Modern Warfare 2 (2009)
 - Call of Duty: Modern Warfare 3 (2011)
 
-Black Ops / Black Ops II / Ghosts / Advanced Warfare share the same 0.022 conversion but store settings
-in binary `.cgp`/`.dat` files rather than `config.cfg`, so they're convert-only for now.
+**Black Ops III** (yaw 0.022) also auto-applies, but via its own plaintext `<install>/players/config.ini`
+(`MouseSensitivity = "x"`). **Black Ops II** shares the 0.022 conversion but stores settings in binary
+`.cgp` profiles (no readable value), so it's convert-only. (Black Ops / Ghosts / Advanced Warfare also
+use 0.022 — pick the closest entry as the source.)
 
 **Quake / id Tech** (yaw 0.022) — Quake · Quake II · Quake III Arena · Quake Live · Quake Champions ·
 Diabotical · Warsow / Xonotic all use the `sensitivity` cvar at `m_yaw 0.022`.

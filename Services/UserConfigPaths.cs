@@ -52,6 +52,36 @@ public static class UserConfigPaths
     public static string TheFinals(string _) =>
         LocalAppData("Discovery", "Saved", "SaveGames", "EmbarkOptionSaveGame.sav");
 
+    /// <summary>
+    /// Locate a Call of Duty config file. Classic IW games (CoD4/CoD2) keep it in
+    /// <c>&lt;install&gt;/players/</c>; the WaW-era games keep per-profile configs in
+    /// <c>%LOCALAPPDATA%/Activision/&lt;folder&gt;/players/profiles/&lt;profile&gt;/</c>. We return the
+    /// first existing match (preferring the most recently used profile), or the install path as a
+    /// helpful default for the "launch the game once first" message.
+    /// </summary>
+    public static string CodPlayersConfig(string installPath, string fileName, params string[] activisionFolders)
+    {
+        var inInstall = Path.Combine(installPath, "players", fileName);
+        try
+        {
+            if (File.Exists(inInstall)) return inInstall;
+
+            foreach (var folder in activisionFolders)
+            {
+                var profiles = LocalAppData("Activision", folder, "players", "profiles");
+                if (!Directory.Exists(profiles)) continue;
+
+                var hit = Directory.EnumerateDirectories(profiles)
+                    .OrderByDescending(Directory.GetLastWriteTimeUtc)
+                    .Select(d => Path.Combine(d, fileName))
+                    .FirstOrDefault(File.Exists);
+                if (hit is not null) return hit;
+            }
+        }
+        catch { /* fall through to default */ }
+        return inInstall;
+    }
+
     public static string MinecraftOptions(string installPath) =>
         // The scanner passes the .minecraft folder as the install path; options.txt sits inside it.
         string.IsNullOrEmpty(installPath)

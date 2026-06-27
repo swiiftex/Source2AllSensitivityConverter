@@ -92,7 +92,7 @@ value and set it in-game · **≈** = the conversion factor is a close approxima
 | Rainbow Six Siege | Unreal | `Documents/My Games/Rainbow Six - Siege/<id>/GameSettings.ini` `[INPUT]` |
 | Mordhau | Unreal | `AppData/Local/Mordhau/Saved/Config/WindowsClient/Input.ini` → MouseX/MouseY |
 | The Finals | Unreal | `AppData/Local/Discovery/Saved/SaveGames/EmbarkOptionSaveGame.sav` (GVAS binary save) |
-| CoD4 · World at War · CoD2 · Modern Warfare 2 (2009) · Modern Warfare 3 (2011) | early IW | `<install>/players/config.cfg` **and** `config_mp.cfg` → `seta sensitivity` |
+| CoD4 · World at War · CoD2 · Modern Warfare 2 (2009) · Modern Warfare 3 (2011) | early IW | `config.cfg` **and** `config_mp.cfg` → `seta sensitivity` — in `<install>/players/` (CoD4/CoD2) or `%LOCALAPPDATA%/Activision/<game>/players/profiles/<profile>/` (WaW-era) |
 | Minecraft (Java) | — | `%APPDATA%/.minecraft/options.txt` → `mouseSensitivity` |
 
 ### Convert-only (copy the value into the game)
@@ -124,7 +124,9 @@ the dropdown and the number applies to every title below it.
 - Call of Duty: Black Ops 7
 
 **Classic Call of Duty (early IW engine, yaw 0.022)** — these **auto-apply** (each is its own catalog
-entry) by writing `seta sensitivity` to both `players/config.cfg` and `players/config_mp.cfg`:
+entry) by writing `seta sensitivity` to both `config.cfg` and `config_mp.cfg`. CoD4/CoD2 keep those in
+`<install>/players/`; World at War and the MW2/MW3 era keep per-profile copies under
+`%LOCALAPPDATA%/Activision/<game>/players/profiles/<profile>/` (the app checks both):
 - Call of Duty 4: Modern Warfare
 - Call of Duty: World at War
 - Call of Duty 2

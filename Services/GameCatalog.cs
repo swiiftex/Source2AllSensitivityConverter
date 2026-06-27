@@ -13,23 +13,22 @@ namespace Source2AllSensitivityConverter.Services;
 /// </summary>
 public static class GameCatalog
 {
+    public static IReadOnlyList<GameDefinition> All { get; } = Build();
+
     /// <summary>
-    /// Early IW-engine Call of Duty games keep settings in players/config.cfg (singleplayer) and
-    /// players/config_mp.cfg (multiplayer) as <c>seta sensitivity "x"</c>. Write both; either may be
-    /// absent (the game creates them on first run). Declared before <see cref="All"/> so it is
-    /// initialised before <see cref="Build"/> runs.
+    /// Early IW-engine Call of Duty: write <c>seta sensitivity</c> to both the singleplayer
+    /// (config.cfg) and multiplayer (config_mp.cfg) configs. Either may be absent. Classic games use
+    /// &lt;install&gt;/players; WaW-era games use %LOCALAPPDATA%/Activision/&lt;folder&gt;/players/profiles.
     /// </summary>
-    private static readonly IConfigApplier EarlyCodApplier = new CompositeApplier(
+    private static IConfigApplier CodApplier(params string[] activisionFolders) => new CompositeApplier(
         new IConfigApplier[]
         {
             new CvarApplier("players/config.cfg  (seta sensitivity)",
-                inst => System.IO.Path.Combine(inst, "players", "config.cfg"), "sensitivity", setaStyle: true),
+                inst => UserConfigPaths.CodPlayersConfig(inst, "config.cfg", activisionFolders), "sensitivity", setaStyle: true),
             new CvarApplier("players/config_mp.cfg  (seta sensitivity)",
-                inst => System.IO.Path.Combine(inst, "players", "config_mp.cfg"), "sensitivity", setaStyle: true),
+                inst => UserConfigPaths.CodPlayersConfig(inst, "config_mp.cfg", activisionFolders), "sensitivity", setaStyle: true),
         },
         requireAll: false);
-
-    public static IReadOnlyList<GameDefinition> All { get; } = Build();
 
     private static List<GameDefinition> Build()
     {
@@ -261,31 +260,33 @@ public static class GameCatalog
             {
                 Name = "Call of Duty 4: Modern Warfare", Engine = Engine.CallOfDuty, YawConstant = srcYaw,
                 SteamAppId = 7940, InstallDirHints = ["call of duty 4"],
-                MarkerFiles = ["iw3mp.exe", "iw3sp.exe"], Applier = EarlyCodApplier,
+                MarkerFiles = ["iw3mp.exe", "iw3sp.exe"], Applier = CodApplier("Call of Duty 4", "CallofDuty4"),
             },
             new GameDefinition
             {
                 Name = "Call of Duty: World at War", Engine = Engine.CallOfDuty, YawConstant = srcYaw,
                 SteamAppId = 10090, InstallDirHints = ["call of duty world at war", "world at war"],
-                MarkerFiles = ["CoDWaWmp.exe", "CoDWaW.exe"], Applier = EarlyCodApplier,
+                MarkerFiles = ["CoDWaWmp.exe", "CoDWaW.exe"], Applier = CodApplier("CoDWaW"),
             },
             new GameDefinition
             {
                 Name = "Call of Duty 2", Engine = Engine.CallOfDuty, YawConstant = srcYaw,
                 SteamAppId = 2620, InstallDirHints = ["call of duty 2"],
-                MarkerFiles = ["CoD2MP_s.exe", "CoD2SP_s.exe"], Applier = EarlyCodApplier,
+                MarkerFiles = ["CoD2MP_s.exe", "CoD2SP_s.exe"], Applier = CodApplier("Call of Duty 2", "CallofDuty2"),
             },
             new GameDefinition
             {
                 Name = "Call of Duty: Modern Warfare 2 (2009)", Engine = Engine.CallOfDuty, YawConstant = srcYaw,
                 SteamAppId = 10180, InstallDirHints = ["call of duty modern warfare 2", "modern warfare 2"],
-                MarkerFiles = ["iw4mp.exe", "iw4sp.exe"], Applier = EarlyCodApplier,
+                MarkerFiles = ["iw4mp.exe", "iw4sp.exe"],
+                Applier = CodApplier("Call of Duty Modern Warfare 2", "CallofDuty Modern Warfare 2"),
             },
             new GameDefinition
             {
                 Name = "Call of Duty: Modern Warfare 3 (2011)", Engine = Engine.CallOfDuty, YawConstant = srcYaw,
                 SteamAppId = 115300, InstallDirHints = ["call of duty modern warfare 3", "modern warfare 3"],
-                MarkerFiles = ["iw5mp.exe", "iw5sp.exe"], Applier = EarlyCodApplier,
+                MarkerFiles = ["iw5mp.exe", "iw5sp.exe"],
+                Applier = CodApplier("Call of Duty Modern Warfare 3", "CallofDuty Modern Warfare 3"),
             },
 
             // ---- Modern shooters: convertible for the calculator (cloud/unverified config -> no write) ----

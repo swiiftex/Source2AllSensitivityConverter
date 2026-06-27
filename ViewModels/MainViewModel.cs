@@ -17,21 +17,34 @@ public sealed class MainViewModel : ObservableObject
     public RelayCommand ApplyCommand { get; }
     public RelayCommand SelectAllCommand { get; }
     public RelayCommand SelectNoneCommand { get; }
+    public RelayCommand CopyConvertCommand { get; }
 
     public MainViewModel()
     {
-        // Default the source dropdown to Counter-Strike 2 (the canonical Source reference).
-        _selectedSource = SourceOptions.FirstOrDefault(o => o.Game.Name == "Counter-Strike 2")
-                          ?? SourceOptions[0];
+        var settings = SettingsStore.Load();
+
+        // Convert tab: restore the most recently used game/sensitivity, with sensible defaults.
+        _convertFrom = FindOption(settings.FromGame) ?? FindOption("Counter-Strike 2") ?? SourceOptions[0];
+        _convertTo = FindOption(settings.ToGame) ?? FindOption("VALORANT") ?? SourceOptions[0];
+        _convertSensitivityText = settings.Sensitivity ?? "1.0";
+
+        // Auto-apply tab shares the same starting point so both tabs feel consistent.
+        _selectedSource = _convertFrom;
+        _sourceSensitivityText = _convertSensitivityText;
 
         ScanCommand = new RelayCommand(async () => await ScanAsync(), () => !IsBusy);
         DetectCommand = new RelayCommand(DetectSourceSensitivity, () => !IsBusy && Games.Count > 0);
         ApplyCommand = new RelayCommand(ApplyToSelected, () => !IsBusy && HasSelection && IsInputValid);
         SelectAllCommand = new RelayCommand(() => SetAllSelected(true), () => !IsBusy);
         SelectNoneCommand = new RelayCommand(() => SetAllSelected(false), () => !IsBusy);
+        CopyConvertCommand = new RelayCommand(CopyConvertOutput, () => ConvertOutput.Length > 0);
 
+        RecomputeConvert();
         OnInputChanged();
     }
+
+    private SourceOption? FindOption(string? name)
+        => name is null ? null : SourceOptions.FirstOrDefault(o => o.Game.Name == name);
 
     // ---- input: either a game's sensitivity, or a cm/360 + DPI ----
 
@@ -96,6 +109,88 @@ public sealed class MainViewModel : ObservableObject
     {
         get => _inputSummary;
         private set => SetField(ref _inputSummary, value);
+    }
+
+    // ---- Convert tab: a simple "from game + sensitivity -> to game" calculator ----
+
+    private SourceOption _convertFrom;
+    public SourceOption ConvertFrom
+    {
+        get => _convertFrom;
+        set { if (SetField(ref _convertFrom, value)) RecomputeConvert(); }
+    }
+
+    private SourceOption _convertTo;
+    public SourceOption ConvertTo
+    {
+        get => _convertTo;
+        set { if (SetField(ref _convertTo, value)) RecomputeConvert(); }
+    }
+
+    private string _convertSensitivityText;
+    public string ConvertSensitivityText
+    {
+        get => _convertSensitivityText;
+        set { if (SetField(ref _convertSensitivityText, value)) RecomputeConvert(); }
+    }
+
+    private string _convertOutput = "";
+    public string ConvertOutput
+    {
+        get => _convertOutput;
+        private set
+        {
+            if (SetField(ref _convertOutput, value))
+            {
+                OnPropertyChanged(nameof(HasConvertOutput));
+                CopyConvertCommand.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
+    public bool HasConvertOutput => _convertOutput.Length > 0;
+
+    private string _convertNote = "";
+    public string ConvertNote
+    {
+        get => _convertNote;
+        private set => SetField(ref _convertNote, value);
+    }
+
+    private void RecomputeConvert()
+    {
+        if (TryParse(_convertSensitivityText, out var sens) && sens > 0
+            && _convertFrom is not null && _convertTo is not null)
+        {
+            var counts = SensitivityConverter.CountsPer360(sens, _convertFrom.Yaw);
+            var result = SensitivityConverter.SensitivityFromCounts(counts, _convertTo.Yaw);
+            ConvertOutput = result.ToString("0.######", CultureInfo.InvariantCulture);
+            var approx = _convertTo.Game.ApproximateYaw ? "approx. " : "";
+            ConvertNote = $"{approx}{counts:0} counts/360  ·  {SensitivityConverter.CmPer360(counts, 800):0.0} cm/360 @ 800 DPI";
+        }
+        else
+        {
+            ConvertOutput = "";
+            ConvertNote = "Enter a valid sensitivity.";
+        }
+
+        SettingsStore.Save(new AppSettings
+        {
+            FromGame = _convertFrom?.Game.Name,
+            ToGame = _convertTo?.Game.Name,
+            Sensitivity = _convertSensitivityText,
+        });
+    }
+
+    private void CopyConvertOutput()
+    {
+        if (_convertOutput.Length == 0) return;
+        try
+        {
+            Clipboard.SetText(_convertOutput);
+            ConvertNote = $"Copied {_convertOutput} to clipboard.";
+        }
+        catch { ConvertNote = "Could not access the clipboard."; }
     }
 
     // ---- state ----

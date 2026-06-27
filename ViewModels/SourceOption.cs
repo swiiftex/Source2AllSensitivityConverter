@@ -12,6 +12,6 @@ public sealed class SourceOption(GameDefinition game)
 
     public double Yaw => Game.YawConstant!.Value;
 
-    /// <summary>Shown in the combo box: game name with its engine, e.g. "VALORANT  (Riot)".</summary>
-    public string Display => $"{Game.Name}  ({Game.Engine})";
+    /// <summary>Shown in the combo box — just the (already descriptive) game name, no raw enum.</summary>
+    public string Display => Game.Name;
 }

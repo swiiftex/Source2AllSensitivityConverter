@@ -131,7 +131,8 @@ the dropdown and the number applies to every title below it.
 entry) by writing `seta sensitivity` to both `config.cfg` (SP) and `config_mp.cfg` (MP). The exact
 folder differs per game (verified, not assumed — see the table above): CoD2 uses `players/`, CoD4 uses
 `players/profiles/<profile>/`, MW2 uses `players/`, MW3 uses `players2/`, and World at War uses
-`%LOCALAPPDATA%/Activision/CoDWaW/players/profiles/<profile>/`. The resolver searches all of these:
+`%LOCALAPPDATA%/Activision/CoDWaW/players/profiles/<profile>/`. Where a game has **multiple profiles,
+the sensitivity is written to every profile's config**. The resolver searches all of these:
 - Call of Duty 4: Modern Warfare
 - Call of Duty: World at War
 - Call of Duty 2

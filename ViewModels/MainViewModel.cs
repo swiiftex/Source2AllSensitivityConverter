@@ -40,9 +40,12 @@ public sealed class MainViewModel : ObservableObject
         _convertTo = FindOption(_settings.ToGame) ?? FindOption("VALORANT") ?? SourceOptions[0];
         _convertSensitivityText = _settings.Sensitivity ?? "1.0";
 
-        // Auto-apply tab shares the same starting point so both tabs feel consistent.
-        _selectedSource = _convertFrom;
-        _sourceSensitivityText = _convertSensitivityText;
+        // Auto-apply tab: restore the last-used input so the user can quickly apply to another game.
+        _selectedSource = FindOption(_settings.AutoFromGame) ?? _convertFrom;
+        _sourceSensitivityText = _settings.AutoSensitivity ?? _convertSensitivityText;
+        _inputByCm360 = _settings.AutoByCm360;
+        _cm360Text = _settings.Cm360 ?? "30";
+        _dpiText = _settings.Dpi ?? "800";
 
         ScanCommand = new RelayCommand(async () => await ScanAsync(), () => !IsBusy);
         DetectCommand = new RelayCommand(DetectSourceSensitivity, () => !IsBusy && Games.Count > 0);
@@ -429,6 +432,18 @@ public sealed class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(IsInputValid));
         OnPropertyChanged(nameof(SelectedDetails));
         RaiseCommandStates();
+        PersistInput();
+    }
+
+    /// <summary>Remember the Auto-apply tab's input between runs.</summary>
+    private void PersistInput()
+    {
+        _settings.AutoFromGame = _selectedSource?.Game.Name;
+        _settings.AutoSensitivity = _sourceSensitivityText;
+        _settings.AutoByCm360 = _inputByCm360;
+        _settings.Cm360 = _cm360Text;
+        _settings.Dpi = _dpiText;
+        SettingsStore.Save(_settings);
     }
 
     private void RecomputeAll() => OnInputChanged();

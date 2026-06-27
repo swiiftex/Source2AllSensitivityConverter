@@ -10,8 +10,13 @@ installed on your machine — scanning Steam, Epic and GOG libraries, detecting 
 The app has two tabs:
 
 **Convert** — the quick calculator. Pick the game your sensitivity is *from*, type the value, pick the
-game to convert *to*, and read the result in a big box with a one-click **Copy** button. Your last-used
-games and sensitivity are remembered between runs (saved to `%APPDATA%\Source2AllSensitivityConverter`).
+game to convert *to*, and read the result in a big box with a one-click **Copy** button.
+
+Your last-used input is remembered between runs — both tabs' games/sensitivity, plus the Auto-apply
+tab's input mode, **cm/360 and DPI** — so you can reopen and immediately apply to another game. Settings
+are stored **portably** in a `UserData` folder next to the executable when that location is writable
+(move the app and your settings come with it), otherwise under
+`%LOCALAPPDATA%\Source2AllSensitivityConverter`. Settings from an older location are migrated automatically.
 
 **Auto-apply** — convert to every installed game at once:
 
@@ -171,9 +176,8 @@ In the editor:
 On apply, the app writes **every** confirmed value (the same converted number) to the file: plain text
 via `{value}` line templates, GVAS strings via the in-place string writer (adjusting the map size), and
 GVAS numerics by overwriting the raw int/float/double. A `*.s2a-backup` is taken first, and the file is
-only touched if it exists. Added games are saved to
-`%APPDATA%\Source2AllSensitivityConverter\settings.json` and reappear (merged onto the matching
-installed game, never duplicated) on every launch.
+only touched if it exists. Added games are saved to the same portable `settings.json` and reappear
+(merged onto the matching installed game, never duplicated) on every launch.
 
 ## Build & run
 

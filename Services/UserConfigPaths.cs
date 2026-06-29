@@ -52,6 +52,59 @@ public static class UserConfigPaths
     public static string TheFinals(string _) =>
         LocalAppData("Discovery", "Saved", "SaveGames", "EmbarkOptionSaveGame.sav");
 
+    /// <summary>
+    /// Find every Call of Duty SP/MP config file (config.cfg + config_mp.cfg), across all profiles.
+    /// Confirmed layouts differ per game:
+    ///   CoD2  -> &lt;install&gt;/players/config.cfg
+    ///   CoD4  -> &lt;install&gt;/players/profiles/&lt;profile&gt;/config_mp.cfg
+    ///   MW2   -> &lt;install&gt;/players/config_mp.cfg
+    ///   MW3   -> &lt;install&gt;/players2/config_mp.cfg
+    ///   WaW   -> %LOCALAPPDATA%/Activision/CoDWaW/players/profiles/&lt;profile&gt;/config_mp.cfg
+    /// We search players and players2 under the install (and under any given Activision folders),
+    /// each folder directly and every profiles/&lt;profile&gt; subfolder, returning all existing configs
+    /// so the sensitivity can be applied to every profile.
+    /// </summary>
+    public static IReadOnlyList<string> CodConfigFiles(string installPath, params string[] activisionFolders)
+    {
+        string[] names = ["config.cfg", "config_mp.cfg"];
+        var bases = new List<string>
+        {
+            Path.Combine(installPath, "players"),
+            Path.Combine(installPath, "players2"),
+        };
+        foreach (var folder in activisionFolders)
+        {
+            bases.Add(LocalAppData("Activision", folder, "players"));
+            bases.Add(LocalAppData("Activision", folder, "players2"));
+        }
+
+        var found = new List<string>();
+        try
+        {
+            foreach (var b in bases)
+            {
+                foreach (var n in names)
+                {
+                    var direct = Path.Combine(b, n);
+                    if (File.Exists(direct)) found.Add(direct);
+                }
+
+                var profiles = Path.Combine(b, "profiles");
+                if (!Directory.Exists(profiles)) continue;
+
+                foreach (var profile in Directory.EnumerateDirectories(profiles))
+                    foreach (var n in names)
+                    {
+                        var p = Path.Combine(profile, n);
+                        if (File.Exists(p)) found.Add(p);
+                    }
+            }
+        }
+        catch { /* return whatever we found */ }
+
+        return found.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
     public static string MinecraftOptions(string installPath) =>
         // The scanner passes the .minecraft folder as the install path; options.txt sits inside it.
         string.IsNullOrEmpty(installPath)

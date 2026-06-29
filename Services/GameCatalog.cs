@@ -240,13 +240,58 @@ public static class GameCatalog
                 MarkerFiles = ["ModernWarfare.exe"],
                 Applier = null,
             },
+            // ---- Early IW-engine Call of Duty (CS 1.0 == 1, yaw 0.022): players/config[_mp].cfg ----
             new GameDefinition
             {
-                // CoD4 through Advanced Warfare (early IW engine, Quake-derived): CS 1.0 == 1, yaw 0.022.
-                Name = "Call of Duty 4: Modern Warfare (early IW engine)", Engine = Engine.CallOfDuty,
-                YawConstant = srcYaw / 1.0,
+                // CoD4 (Steam): <install>/players/profiles/<profile>/config_mp.cfg
+                Name = "Call of Duty 4: Modern Warfare", Engine = Engine.CallOfDuty, YawConstant = srcYaw,
                 SteamAppId = 7940, InstallDirHints = ["call of duty 4"],
-                MarkerFiles = ["iw3mp.exe", "iw3sp.exe"],
+                MarkerFiles = ["iw3mp.exe", "iw3sp.exe"], Applier = new CodSensitivityApplier(),
+            },
+            new GameDefinition
+            {
+                // WaW: %LOCALAPPDATA%/Activision/CoDWaW/players/profiles/<profile>/config_mp.cfg
+                Name = "Call of Duty: World at War", Engine = Engine.CallOfDuty, YawConstant = srcYaw,
+                SteamAppId = 10090, InstallDirHints = ["call of duty world at war", "world at war"],
+                MarkerFiles = ["CoDWaWmp.exe", "CoDWaW.exe"], Applier = new CodSensitivityApplier("CoDWaW"),
+            },
+            new GameDefinition
+            {
+                // CoD2: <install>/players/config.cfg
+                Name = "Call of Duty 2", Engine = Engine.CallOfDuty, YawConstant = srcYaw,
+                SteamAppId = 2620, InstallDirHints = ["call of duty 2"],
+                MarkerFiles = ["CoD2MP_s.exe", "CoD2SP_s.exe"], Applier = new CodSensitivityApplier(),
+            },
+            new GameDefinition
+            {
+                // MW2 (2009): <install>/players/config_mp.cfg
+                Name = "Call of Duty: Modern Warfare 2 (2009)", Engine = Engine.CallOfDuty, YawConstant = srcYaw,
+                SteamAppId = 10180, InstallDirHints = ["call of duty modern warfare 2", "modern warfare 2"],
+                MarkerFiles = ["iw4mp.exe", "iw4sp.exe"], Applier = new CodSensitivityApplier(),
+            },
+            new GameDefinition
+            {
+                // MW3 (2011): <install>/players2/config_mp.cfg
+                Name = "Call of Duty: Modern Warfare 3 (2011)", Engine = Engine.CallOfDuty, YawConstant = srcYaw,
+                SteamAppId = 115300, InstallDirHints = ["call of duty modern warfare 3", "modern warfare 3"],
+                MarkerFiles = ["iw5mp.exe", "iw5sp.exe"], Applier = new CodSensitivityApplier(),
+            },
+            new GameDefinition
+            {
+                // Black Ops III (yaw 0.022): plaintext <install>/players/config.ini -> MouseSensitivity = "x".
+                Name = "Call of Duty: Black Ops III", Engine = Engine.CallOfDuty, YawConstant = srcYaw,
+                SteamAppId = 311210, InstallDirHints = ["black ops iii", "black ops 3"],
+                MarkerFiles = ["BlackOps3.exe"],
+                Applier = new TemplateApplier(
+                    inst => System.IO.Path.Combine(inst, "players", "config.ini"),
+                    "MouseSensitivity = \"{value}\"", createIfMissing: false),
+            },
+            new GameDefinition
+            {
+                // Black Ops II (yaw 0.022): settings are in binary .cgp profiles -> convert-only.
+                Name = "Call of Duty: Black Ops II", Engine = Engine.CallOfDuty, YawConstant = srcYaw,
+                SteamAppId = 202970, InstallDirHints = ["black ops ii", "black ops 2"],
+                MarkerFiles = ["t6mp.exe", "t6sp.exe", "t6zm.exe"],
                 Applier = null,
             },
 

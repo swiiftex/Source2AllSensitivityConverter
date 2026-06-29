@@ -62,74 +62,78 @@ Engine detection (for catalog misses) looks for hallmark files: `engine2.dll`/`g
 
 ## Supported games
 
-Legend: **✅ Auto-apply** = the app writes the config for you · **🧮 Convert-only** = you copy the
-value and set it in-game · **≈** = the conversion factor is a close approximation.
+Every supported game, individually. **Status**: ✅ Auto-apply = the app writes the config for you ·
+🧮 Convert-only = the app shows the value, you set it in-game · 🚫 No conversion = listed but not
+converted. `≈` marks a commonly-cited (approximate) conversion factor.
 
-### Auto-applied (config written for you)
+| Game | Engine | Status |
+|------|--------|--------|
+| Counter-Strike 2 | Source 2 | ✅ Auto-apply |
+| Deadlock | Source 2 | ✅ Auto-apply |
+| Team Fortress 2 | Source | ✅ Auto-apply |
+| Counter-Strike: Source | Source | ✅ Auto-apply |
+| Half-Life 2 | Source | ✅ Auto-apply |
+| Half-Life: Source | Source | ✅ Auto-apply |
+| Half-Life 2: Deathmatch | Source | ✅ Auto-apply |
+| Left 4 Dead 2 | Source | ✅ Auto-apply |
+| Portal | Source | ✅ Auto-apply |
+| Portal 2 | Source | ✅ Auto-apply |
+| Garry's Mod | Source | ✅ Auto-apply |
+| Day of Defeat: Source | Source | ✅ Auto-apply |
+| Black Mesa | Source | ✅ Auto-apply |
+| Insurgency | Source | ✅ Auto-apply |
+| Day of Infamy | Source | ✅ Auto-apply |
+| Apex Legends | Source | ✅ Auto-apply |
+| Titanfall 2 | Source | ✅ Auto-apply |
+| Half-Life | GoldSrc | ✅ Auto-apply |
+| Counter-Strike 1.6 | GoldSrc | ✅ Auto-apply |
+| Counter-Strike: Condition Zero | GoldSrc | ✅ Auto-apply |
+| Day of Defeat | GoldSrc | ✅ Auto-apply |
+| Team Fortress Classic | GoldSrc | ✅ Auto-apply |
+| Half-Life: Opposing Force | GoldSrc | ✅ Auto-apply |
+| Sven Co-op | GoldSrc | ✅ Auto-apply |
+| Quake Champions | id Tech | ✅ Auto-apply |
+| DOOM Eternal | id Tech | ✅ Auto-apply |
+| Call of Duty 2 | Call of Duty (IW) | ✅ Auto-apply |
+| Call of Duty 4: Modern Warfare | Call of Duty (IW) | ✅ Auto-apply |
+| Call of Duty: World at War | Call of Duty (IW) | ✅ Auto-apply |
+| Call of Duty: Modern Warfare 2 (2009) | Call of Duty (IW) | ✅ Auto-apply |
+| Call of Duty: Modern Warfare 3 (2011) | Call of Duty (IW) | ✅ Auto-apply |
+| Call of Duty: Black Ops III | Call of Duty (IW) | ✅ Auto-apply |
+| Call of Duty: Black Ops II | Call of Duty (IW) | 🧮 Convert-only |
+| Call of Duty: Modern Warfare (2019) | Call of Duty (IW) | 🧮 Convert-only \* |
+| Call of Duty: Warzone | Call of Duty (IW) | 🧮 Convert-only \* |
+| Call of Duty: Black Ops Cold War | Call of Duty (IW) | 🧮 Convert-only \* |
+| Call of Duty: Vanguard | Call of Duty (IW) | 🧮 Convert-only \* |
+| Call of Duty: Modern Warfare II (2022) | Call of Duty (IW) | 🧮 Convert-only \* |
+| Call of Duty: Modern Warfare III (2023) | Call of Duty (IW) | 🧮 Convert-only \* |
+| Call of Duty: Black Ops 6 | Call of Duty (IW) | 🧮 Convert-only \* |
+| Call of Duty: Black Ops 7 | Call of Duty (IW) | 🧮 Convert-only \* |
+| Rainbow Six Siege | Unreal Engine | ✅ Auto-apply |
+| Mordhau | Unreal Engine | ✅ Auto-apply |
+| The Finals | Unreal Engine | ✅ Auto-apply |
+| Fortnite | Unreal Engine | 🧮 Convert-only |
+| Marvel Rivals | Unreal Engine | 🧮 Convert-only ≈ |
+| Halo Infinite | Unreal Engine | 🧮 Convert-only ≈ |
+| Chivalry 2 | Unreal Engine | 🧮 Convert-only |
+| Chivalry: Medieval Warfare | Unreal Engine | 🧮 Convert-only |
+| Ready or Not | Unreal Engine | 🧮 Convert-only |
+| ARC Raiders | Unreal Engine | 🧮 Convert-only |
+| Rising Storm 2: Vietnam | Unreal Engine | 🧮 Convert-only |
+| PUBG: BATTLEGROUNDS | Unreal Engine | 🚫 No conversion |
+| Rust | Unity | ✅ Auto-apply |
+| BattleBit Remastered | Unity | 🧮 Convert-only ≈ |
+| VALORANT | Riot | 🧮 Convert-only |
+| Overwatch 2 | Overwatch | 🧮 Convert-only |
+| Minecraft (Java) | Other | ✅ Auto-apply |
 
-| Game | Engine | Config written |
-|------|--------|----------------|
-| Counter-Strike 2 | Source 2 | `game/csgo/cfg/autoexec.cfg` |
-| Team Fortress 2 | Source | `tf/cfg/autoexec.cfg` |
-| Counter-Strike: Source | Source | `cstrike/cfg/autoexec.cfg` |
-| Half-Life 2 | Source | `hl2/cfg/autoexec.cfg` |
-| Half-Life: Source | Source | `hl1/cfg/autoexec.cfg` |
-| Half-Life 2: Deathmatch | Source | `hl2mp/cfg/autoexec.cfg` |
-| Left 4 Dead 2 | Source | `left4dead2/cfg/autoexec.cfg` |
-| Portal · Portal 2 | Source | `portal[2]/cfg/autoexec.cfg` |
-| Garry's Mod | Source | `garrysmod/cfg/autoexec.cfg` |
-| Day of Defeat: Source | Source | `dod/cfg/autoexec.cfg` |
-| Deadlock | Source 2 | `game/citadel/cfg/autoexec.cfg` |
-| Black Mesa | Source | `bms/cfg/autoexec.cfg` |
-| Insurgency (2014) | Source | `insurgency/cfg/autoexec.cfg` |
-| Day of Infamy | Source | `doi/cfg/autoexec.cfg` |
-| Half-Life · Counter-Strike 1.6 · Condition Zero · Day of Defeat · Team Fortress Classic · Opposing Force · Sven Co-op | GoldSrc | `<mod>/autoexec.cfg` |
-| Apex Legends | Source (Respawn) | `Saved Games/Respawn/Apex/local/settings.cfg` → `mouse_sensitivity` |
-| Titanfall 2 | Source (Respawn) | `Documents/Respawn/Titanfall2/local/settings.cfg` → `mouse_sensitivity` |
-| Quake Champions | id Tech | `…/id Software/Quake Champions/client/config/input.cfg` → `seta sensitivity` |
-| DOOM Eternal | id Tech | `Saved Games/id Software/DOOMEternal/base/DOOMEternalConfig.local` → `seta sensitivity` |
-| Rust | Unity | `<install>/cfg/client.cfg` → `input.sensitivity` |
-| Rainbow Six Siege | Unreal | `Documents/My Games/Rainbow Six - Siege/<id>/GameSettings.ini` `[INPUT]` |
-| Mordhau | Unreal | `AppData/Local/Mordhau/Saved/Config/WindowsClient/Input.ini` → MouseX/MouseY |
-| The Finals | Unreal | `AppData/Local/Discovery/Saved/SaveGames/EmbarkOptionSaveGame.sav` (GVAS binary save) |
-| Minecraft (Java) | — | `%APPDATA%/.minecraft/options.txt` → `mouseSensitivity` |
+\* The modern Call of Duty titles all share one **“Call of Duty (Modern Warfare 2019 and newer)”**
+entry in the app's dropdown (same engine, same conversion) — they're listed separately here for clarity.
 
-### Convert-only (copy the value into the game)
-
-VALORANT · Overwatch 2 ≈ · Fortnite · Marvel Rivals ≈ · Halo Infinite ≈ ·
-BattleBit Remastered ≈ · Chivalry 2 · Chivalry: Medieval Warfare · Ready or Not · ARC Raiders ·
-Rising Storm 2: Vietnam · PUBG (*no conversion — FOV/scope-dependent, listed for reference only*).
-
-### Conversion families (one value covers the whole series)
-
-Games in a series share an engine and therefore the same sensitivity value. Pick the family entry in
-the dropdown and the number applies to every title below it.
-
-**Modern Call of Duty** — pick *“Call of Duty (Modern Warfare 2019 and newer)”* (yaw 0.0066):
-- Call of Duty: Modern Warfare (2019)
-- Call of Duty: Warzone
-- Call of Duty: Black Ops Cold War
-- Call of Duty: Vanguard
-- Call of Duty: Modern Warfare II (2022)
-- Call of Duty: Modern Warfare III (2023)
-- Call of Duty: Black Ops 6
-- Call of Duty: Black Ops 7
-
-**Classic Call of Duty (IW engine)** — pick *“Call of Duty 4: Modern Warfare (early IW engine)”* (yaw 0.022):
-- Call of Duty 4: Modern Warfare
-- Call of Duty: World at War
-- Call of Duty: Modern Warfare 2 (2009)
-- Call of Duty: Black Ops
-- Call of Duty: Modern Warfare 3 (2011)
-- Call of Duty: Black Ops II
-- Call of Duty: Ghosts
-- Call of Duty: Advanced Warfare
-
-**Quake / id Tech** (yaw 0.022) — Quake · Quake II · Quake III Arena · Quake Live · Quake Champions ·
-Diabotical · Warsow / Xonotic all use the `sensitivity` cvar at `m_yaw 0.022`.
-
-**Source / GoldSrc** (yaw 0.022) — any Source or GoldSrc game/mod uses the same `sensitivity` cvar; the
-titles listed under *Auto-applied* are the ones the app detects and writes automatically.
+A few convert-only cases, for reference: **Overwatch 2** has no sensitivity key in its local config
+(it's account/cloud-stored — verified); **Fortnite**'s `ClientSettings.Sav` is a plain (un-encrypted)
+UE float, but it re-syncs from the cloud on launch so local edits don't stick; **PUBG**'s sensitivity
+is FOV/scope-dependent with no agreed single yaw, so it's listed without a conversion.
 
 ### How auto-apply works
 

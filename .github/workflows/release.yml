@@ -32,6 +32,7 @@ jobs:
           -p:IncludeNativeLibrariesForSelfExtract=true
           -p:EnableCompressionInSingleFile=true
           -p:DebugType=none
+          -p:Version=1.0.${{ github.run_number }}
           -o publish
 
       - name: Package zip

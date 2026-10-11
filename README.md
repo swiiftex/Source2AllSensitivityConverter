@@ -43,10 +43,15 @@ targetSensitivity  =  360 / (counts/360 × targetYaw)   // for each target game
 
 Each game carries a *yaw* constant (degrees per count at sensitivity 1.0). Exact values are used for
 the well-established cases (Source `0.022`, Valorant `0.07`, Overwatch `0.0066`, R6 `0.00572958`,
-Fortnite `0.005555`, Rust `0.1125`); a few are commonly-cited approximations (Call of Duty, Marvel
-Rivals, The Finals, Halo Infinite, BattleBit) and are shown with a `≈` and an "approximate" note.
-Games whose input model isn't a simple linear yaw (e.g. **PUBG**, whose value is FOV/scope-dependent)
-are listed with their engine but marked *No conversion*.
+Fortnite `0.005555`, Rust `0.1125`, Marvel Rivals `0.0175`, Deadlock `0.044`). Values come from
+DPI Wizard's measurements (mouse-sensitivity.com), aiming.pro, KovaaK's and GyroWiki, cross-checked
+where more than one source exists. Ones resting on a single source, or that change with FOV (shown at
+the game's default FOV), are marked `≈` with an "approximate" note.
+
+Some games aren't a plain multiplier, and the app models those too:
+- **Offset:** turn rate is `yaw × (value + offset)` (Battlefield, Warframe, The Division 2, Gears 5).
+- **Exponential:** PUBG's slider (shown for first-person at FOV 90), Arma 3, Vermintide 2.
+- **Cubic or piecewise:** PlanetSide 2, Rogue Company, Gears of War: E-Day.
 
 ## Stores & detection
 
@@ -73,67 +78,179 @@ converted. `≈` marks a commonly-cited (approximate) conversion factor.
 | Team Fortress 2 | Source | ✅ Auto-apply |
 | Counter-Strike: Source | Source | ✅ Auto-apply |
 | Half-Life 2 | Source | ✅ Auto-apply |
-| Half-Life: Source | Source | ✅ Auto-apply |
-| Half-Life 2: Deathmatch | Source | ✅ Auto-apply |
 | Left 4 Dead 2 | Source | ✅ Auto-apply |
-| Portal | Source | ✅ Auto-apply |
 | Portal 2 | Source | ✅ Auto-apply |
 | Garry's Mod | Source | ✅ Auto-apply |
 | Day of Defeat: Source | Source | ✅ Auto-apply |
+| Portal | Source | ✅ Auto-apply |
+| Half-Life: Source | Source | ✅ Auto-apply |
+| Half-Life 2: Deathmatch | Source | ✅ Auto-apply |
 | Black Mesa | Source | ✅ Auto-apply |
 | Insurgency | Source | ✅ Auto-apply |
 | Day of Infamy | Source | ✅ Auto-apply |
+| Left 4 Dead | Source | ✅ Auto-apply |
+| Half-Life Deathmatch: Source | Source | ✅ Auto-apply |
+| Counter-Strike: Global Offensive (Legacy) | Source | ✅ Auto-apply |
+| No More Room in Hell | Source | ✅ Auto-apply |
+| Fistful of Frags | Source | ✅ Auto-apply |
+| Zombie Panic! Source | Source | ✅ Auto-apply |
+| Synergy | Source | ✅ Auto-apply |
+| Nuclear Dawn | Source | ✅ Auto-apply |
+| Contagion | Source | ✅ Auto-apply |
+| Portal Stories: Mel | Source | ✅ Auto-apply |
+| Team Fortress 2 Classified | Source | ✅ Auto-apply |
+| Hunt Down The Freeman | Source | ✅ Auto-apply |
 | Apex Legends | Source | ✅ Auto-apply |
 | Titanfall 2 | Source | ✅ Auto-apply |
+| Titanfall | Source | 🧮 Convert-only ≈ |
 | Half-Life | GoldSrc | ✅ Auto-apply |
 | Counter-Strike 1.6 | GoldSrc | ✅ Auto-apply |
-| Counter-Strike: Condition Zero | GoldSrc | ✅ Auto-apply |
 | Day of Defeat | GoldSrc | ✅ Auto-apply |
 | Team Fortress Classic | GoldSrc | ✅ Auto-apply |
 | Half-Life: Opposing Force | GoldSrc | ✅ Auto-apply |
+| Counter-Strike: Condition Zero | GoldSrc | ✅ Auto-apply |
 | Sven Co-op | GoldSrc | ✅ Auto-apply |
+| Half-Life: Blue Shift | GoldSrc | ✅ Auto-apply |
+| Ricochet | GoldSrc | ✅ Auto-apply |
+| Deathmatch Classic | GoldSrc | ✅ Auto-apply |
 | Quake Champions | id Tech | ✅ Auto-apply |
 | DOOM Eternal | id Tech | ✅ Auto-apply |
-| Call of Duty 2 | Call of Duty (IW) | ✅ Auto-apply |
+| Quake Live | id Tech | ✅ Auto-apply |
+| Quake III Arena | id Tech | ✅ Auto-apply |
+| Quake 4 | id Tech | ✅ Auto-apply |
+| Return to Castle Wolfenstein | id Tech | ✅ Auto-apply |
+| Wolfenstein: Enemy Territory | id Tech | ✅ Auto-apply |
+| Warfork | id Tech | ✅ Auto-apply |
+| Quake (2021) | id Tech | 🧮 Convert-only |
+| Quake II (2023) | id Tech | 🧮 Convert-only ≈ |
+| DOOM (2016) | id Tech | 🧮 Convert-only |
+| DOOM: The Dark Ages | id Tech | 🧮 Convert-only ≈ |
+| Xonotic | id Tech | 🧮 Convert-only |
+| Call of Duty: Modern Warfare (2019) | Call of Duty (IW) | ✅ Auto-apply |
+| Call of Duty: Vanguard | Call of Duty (IW) | ✅ Auto-apply |
+| Call of Duty: Modern Warfare II (2022) | Call of Duty (IW) | ✅ Auto-apply |
+| Call of Duty: Modern Warfare III (2023) | Call of Duty (IW) | ✅ Auto-apply |
+| Call of Duty: Black Ops 6 | Call of Duty (IW) | ✅ Auto-apply |
+| Call of Duty: Black Ops 7 | Call of Duty (IW) | ✅ Auto-apply |
+| Call of Duty: Warzone | Call of Duty (IW) | ✅ Auto-apply |
+| Call of Duty: Modern Warfare 4 | Call of Duty (IW) | ✅ Auto-apply |
+| Call of Duty: Black Ops 4 | Call of Duty (IW) | ✅ Auto-apply ≈ |
 | Call of Duty 4: Modern Warfare | Call of Duty (IW) | ✅ Auto-apply |
 | Call of Duty: World at War | Call of Duty (IW) | ✅ Auto-apply |
+| Call of Duty 2 | Call of Duty (IW) | ✅ Auto-apply |
 | Call of Duty: Modern Warfare 2 (2009) | Call of Duty (IW) | ✅ Auto-apply |
 | Call of Duty: Modern Warfare 3 (2011) | Call of Duty (IW) | ✅ Auto-apply |
 | Call of Duty: Black Ops III | Call of Duty (IW) | ✅ Auto-apply |
+| Call of Duty: Black Ops | Call of Duty (IW) | ✅ Auto-apply |
+| Call of Duty: Ghosts | Call of Duty (IW) | ✅ Auto-apply ≈ |
+| Call of Duty: Advanced Warfare | Call of Duty (IW) | ✅ Auto-apply ≈ |
+| Call of Duty: Modern Warfare Remastered | Call of Duty (IW) | ✅ Auto-apply ≈ |
+| Call of Duty: Black Ops Cold War | Call of Duty (IW) | 🧮 Convert-only |
+| Call of Duty: Infinite Warfare | Call of Duty (IW) | 🧮 Convert-only ≈ |
+| Call of Duty: WWII | Call of Duty (IW) | 🧮 Convert-only ≈ |
 | Call of Duty: Black Ops II | Call of Duty (IW) | 🧮 Convert-only |
-| Call of Duty: Modern Warfare (2019) | Call of Duty (IW) | 🧮 Convert-only \* |
-| Call of Duty: Warzone | Call of Duty (IW) | 🧮 Convert-only \* |
-| Call of Duty: Black Ops Cold War | Call of Duty (IW) | 🧮 Convert-only \* |
-| Call of Duty: Vanguard | Call of Duty (IW) | 🧮 Convert-only \* |
-| Call of Duty: Modern Warfare II (2022) | Call of Duty (IW) | 🧮 Convert-only \* |
-| Call of Duty: Modern Warfare III (2023) | Call of Duty (IW) | 🧮 Convert-only \* |
-| Call of Duty: Black Ops 6 | Call of Duty (IW) | 🧮 Convert-only \* |
-| Call of Duty: Black Ops 7 | Call of Duty (IW) | 🧮 Convert-only \* |
-| Rainbow Six Siege | Unreal Engine | ✅ Auto-apply |
-| Mordhau | Unreal Engine | ✅ Auto-apply |
 | The Finals | Unreal Engine | ✅ Auto-apply |
+| Mordhau | Unreal Engine | ✅ Auto-apply |
+| Chivalry 2 | Unreal Engine | ✅ Auto-apply |
+| Chivalry: Medieval Warfare | Unreal Engine | ✅ Auto-apply |
+| Ready or Not | Unreal Engine | ✅ Auto-apply |
+| Rising Storm 2: Vietnam | Unreal Engine | ✅ Auto-apply |
+| Insurgency: Sandstorm | Unreal Engine | ✅ Auto-apply ≈ |
+| PUBG: BATTLEGROUNDS | Unreal Engine | ✅ Auto-apply ≈ |
+| Rainbow Six Siege | Unreal Engine | ✅ Auto-apply |
+| Deep Rock Galactic | Unreal Engine | ✅ Auto-apply ≈ |
+| Unreal Tournament 2004 | Unreal Engine | ✅ Auto-apply ≈ |
+| Unreal Tournament (1999) | Unreal Engine | ✅ Auto-apply ≈ |
+| Red Orchestra 2: Heroes of Stalingrad | Unreal Engine | ✅ Auto-apply ≈ |
+| Halo: The Master Chief Collection | Unreal Engine | 🧮 Convert-only |
 | Fortnite | Unreal Engine | 🧮 Convert-only |
-| Marvel Rivals | Unreal Engine | 🧮 Convert-only ≈ |
-| Halo Infinite | Unreal Engine | 🧮 Convert-only ≈ |
-| Chivalry 2 | Unreal Engine | 🧮 Convert-only |
-| Chivalry: Medieval Warfare | Unreal Engine | 🧮 Convert-only |
-| Ready or Not | Unreal Engine | 🧮 Convert-only |
+| Marvel Rivals | Unreal Engine | 🧮 Convert-only |
+| Halo Infinite | Unreal Engine | 🧮 Convert-only |
 | ARC Raiders | Unreal Engine | 🧮 Convert-only |
-| Rising Storm 2: Vietnam | Unreal Engine | 🧮 Convert-only |
-| PUBG: BATTLEGROUNDS | Unreal Engine | 🚫 No conversion |
+| FragPunk | Unreal Engine | 🧮 Convert-only ≈ |
+| Arena Breakout: Infinite | Unreal Engine | 🧮 Convert-only ≈ |
+| Delta Force | Unreal Engine | 🧮 Convert-only ≈ |
+| Splitgate | Unreal Engine | 🧮 Convert-only ≈ |
+| SPLITGATE: Arena Reloaded | Unreal Engine | 🧮 Convert-only ≈ |
+| Rogue Company | Unreal Engine | 🧮 Convert-only ≈ |
+| Paladins | Unreal Engine | 🧮 Convert-only ≈ |
+| Gears 5 | Unreal Engine | 🧮 Convert-only ≈ |
+| Gears of War: E-Day | Unreal Engine | 🧮 Convert-only ≈ |
+| Squad | Unreal Engine | 🧮 Convert-only ≈ |
+| PAYDAY 3 | Unreal Engine | 🧮 Convert-only |
+| Killing Floor 2 | Unreal Engine | 🧮 Convert-only ≈ |
+| Borderlands 2 | Unreal Engine | 🧮 Convert-only |
+| Borderlands 3 | Unreal Engine | 🧮 Convert-only ≈ |
+| Tiny Tina's Wonderlands | Unreal Engine | 🧮 Convert-only ≈ |
+| BATTALION: Legacy | Unreal Engine | 🧮 Convert-only |
+| Black Squad | Unreal Engine | 🧮 Convert-only ≈ |
+| Darwin Project | Unreal Engine | 🧮 Convert-only ≈ |
+| Aimbeast | Unreal Engine | 🧮 Convert-only |
+| Battlefield 4 | Frostbite | ✅ Auto-apply |
+| Battlefield 2042 | Frostbite | ✅ Auto-apply |
+| Battlefield 1 | Frostbite | ✅ Auto-apply ≈ |
+| Battlefield V | Frostbite | ✅ Auto-apply ≈ |
+| Battlefield 3 | Frostbite | ✅ Auto-apply ≈ |
+| Battlefield 6 | Frostbite | ✅ Auto-apply ≈ |
+| Star Wars Battlefront II (2017) | Frostbite | 🧮 Convert-only ≈ |
+| Fallout 4 | Creation Engine | ✅ Auto-apply |
+| Fallout 76 | Creation Engine | ✅ Auto-apply |
+| The Elder Scrolls V: Skyrim Special Edition | Creation Engine | ✅ Auto-apply ≈ |
+| Starfield | Creation Engine | ✅ Auto-apply |
+| Far Cry 5 | Dunia | ✅ Auto-apply |
+| Far Cry New Dawn | Dunia | ✅ Auto-apply |
+| Far Cry 6 | Dunia | ✅ Auto-apply |
+| Tom Clancy's The Division 2 | Snowdrop | 🧮 Convert-only ≈ |
+| Warhammer: Vermintide 2 | Stingray | ✅ Auto-apply ≈ |
+| HELLDIVERS 2 | Stingray | ✅ Auto-apply ≈ |
+| Warhammer 40,000: Darktide | Stingray | 🧮 Convert-only ≈ |
+| Cyberpunk 2077 | REDengine | ✅ Auto-apply ≈ |
+| Escape from Tarkov | Unity | ✅ Auto-apply |
 | Rust | Unity | ✅ Auto-apply |
-| BattleBit Remastered | Unity | 🧮 Convert-only ≈ |
+| Risk of Rain 2 | Unity | ✅ Auto-apply |
+| DUSK | Unity | ✅ Auto-apply ≈ |
+| BattleBit Remastered | Unity | 🧮 Convert-only |
+| 7 Days to Die | Unity | 🧮 Convert-only |
+| Unturned | Unity | 🧮 Convert-only ≈ |
+| Valheim | Unity | 🧮 Convert-only ≈ |
+| Lethal Company | Unity | 🧮 Convert-only ≈ |
+| Aimlabs | Unity | 🧮 Convert-only ≈ |
+| Hunt: Showdown 1896 | CryEngine | ✅ Auto-apply |
+| Warface: Clutch | CryEngine | 🧮 Convert-only ≈ |
 | VALORANT | Riot | 🧮 Convert-only |
 | Overwatch 2 | Overwatch | 🧮 Convert-only |
 | Minecraft (Java) | Other | ✅ Auto-apply |
-
-\* The modern Call of Duty titles all share one **“Call of Duty (Modern Warfare 2019 and newer)”**
-entry in the app's dropdown (same engine, same conversion) — they're listed separately here for clarity.
+| PlanetSide 2 | Other | ✅ Auto-apply ≈ |
+| Destiny 2 | Other | 🧮 Convert-only |
+| Diabotical | Other | 🧮 Convert-only |
+| Marathon | Other | 🧮 Convert-only |
+| Warframe | Other | 🧮 Convert-only ≈ |
+| Tom Clancy's Rainbow Six Extraction | Other | 🧮 Convert-only |
+| Krunker | Other | 🧮 Convert-only ≈ |
+| Enlisted | Other | 🧮 Convert-only ≈ |
+| DayZ | Other | 🧮 Convert-only ≈ |
+| Arma 3 | Other | 🧮 Convert-only ≈ |
+| PAYDAY 2 | Other | 🧮 Convert-only |
+| Dying Light 2 Stay Human | Other | 🧮 Convert-only ≈ |
+| Roblox | Other | 🧮 Convert-only ≈ |
+| Natural Selection 2 | Other | 🧮 Convert-only |
+| Reflex Arena | Other | 🧮 Convert-only |
+| Diabotical Rogue | Other | 🧮 Convert-only |
+| 3D Aim Trainer | Other | 🧮 Convert-only |
+| Gunfire Reborn | Other | 🧮 Convert-only ≈ |
+| ULTRAKILL | Other | 🧮 Convert-only ≈ |
+| World War Z | Other | 🧮 Convert-only ≈ |
+| SUPERHOT | Other | 🧮 Convert-only ≈ |
+| Sea of Thieves | Other | 🧮 Convert-only ≈ |
+| Devil Daggers | Other | 🧮 Convert-only ≈ |
+| Prodeus | Other | 🧮 Convert-only ≈ |
+| The Outer Worlds | Other | 🧮 Convert-only ≈ |
+| Control | Other | 🧮 Convert-only ≈ |
 
 A few convert-only cases, for reference: **Overwatch 2** has no sensitivity key in its local config
 (it's account/cloud-stored — verified); **Fortnite**'s `ClientSettings.Sav` is a plain (un-encrypted)
-UE float, but it re-syncs from the cloud on launch so local edits don't stick; **PUBG**'s sensitivity
-is FOV/scope-dependent with no agreed single yaw, so it's listed without a conversion.
+UE float, but it re-syncs from the cloud on launch so local edits don't stick; **Delta Force** forbids
+editing its config files in its terms of service, so it is never written.
 
 ### How auto-apply works
 
@@ -150,8 +267,29 @@ fabricated in a guessed location. Source/GoldSrc `autoexec.cfg` is the exception
 on launch and overrides the managed config. Minecraft (which no store launcher reports) is detected
 directly from `%APPDATA%/.minecraft`.
 
-VALORANT, Overwatch 2 and Call of Duty are convert-only because their settings are cloud-synced, opaquely
-scaled, or keyed by numeric IDs; their value still appears in the copyable output box.
+VALORANT, Overwatch 2, Destiny 2 and Black Ops Cold War are convert-only because their sensitivity is
+stored server-side or nowhere readable; their value still appears in the copyable output box.
+
+Per-game notes:
+
+- **Counter-Strike 2 / Deadlock** — the live value is in Steam `userdata\<account>\<appid>` (the local
+  convar file and its Steam Cloud copy, for every Steam account on the PC); `autoexec.cfg` is written too.
+- **Call of Duty (MW2019 onward)** — every title is its own row. The games inside the shared
+  **Call of Duty HQ** install (Black Ops 6, Black Ops 7, Warzone, Modern Warfare 4) each get a row from
+  that one install, picked from the DLC Steam reports as installed. Each writes its own per-account
+  settings files (both `.txt0`/`.txt1` copies where the game keeps two). Black Ops 4 is Battle.net-only,
+  so add its folder by hand.
+- **Battlefield** — writes `GstInput.MouseSensitivity` in the `PROFSAVE` profile(s). Launch and play
+  without opening the settings menu first, or the game may save its old value back. Battlefield 6 is
+  shown as its in-game slider value; the profile stores that value ÷ 1333.33.
+- **PUBG** — writes both `Sensitivity` and `LastConvertedSensitivity` of the mouse "Normal" entry, which
+  only exists after you've changed sensitivity in-game once.
+- **Deep Rock Galactic** — the config stores the slider × 100; **Fallout 4/76, Skyrim, Starfield** write
+  `fMouseHeadingSensitivity` (also in the `*Custom.ini` if you have one there).
+- Some keys only appear once you've changed the setting in-game (PUBG, Starfield, PlanetSide 2,
+  Helldivers 2); until then the app reports that the setting wasn't found rather than adding it.
+- Several games (Call of Duty, Rising Storm 2, Insurgency: Sandstorm, Far Cry) are known to restore or
+  re-sync settings; if a value doesn't stick, set the file read-only after applying.
 
 ## Adding your own game
 
@@ -199,6 +337,15 @@ games you explicitly select.
 single-file** `win-x64` build (no .NET install needed to run it) and attaches the `.exe` and a zip
 to a GitHub Release tagged `v1.0.<run-number>`. No manual steps — push to `main` and the packaged
 app appears under **Releases**.
+
+### Updates
+
+The build is stamped with the same `1.0.<run-number>` version as its release tag. On startup the app
+asks GitHub for the newest release, and if there is one, an **Update to …** button appears in the
+header (there's also **Check for updates**). Updating downloads the new `.exe`, checks it against
+GitHub's SHA-256, closes the app, swaps the exe in place and opens it again. The `UserData` settings
+folder next to it is untouched. Local builds report themselves as a *Development build* (`0.0.0`)
+and only check when you ask.
 
 ## Ideas for future ease-of-use
 

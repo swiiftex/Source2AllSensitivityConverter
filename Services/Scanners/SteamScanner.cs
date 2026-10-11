@@ -56,12 +56,20 @@ public sealed class SteamScanner : IStoreScanner
 
             int? appId = int.TryParse(app.GetString("appid"), out var id) ? id : null;
 
+            // DLC depots carry a "dlcappid" — launchers like Call of Duty HQ install games as DLC.
+            var dlc = app["InstalledDepots"]?.Children.Values
+                .Select(d => int.TryParse(d.GetString("dlcappid"), out var dlcId) ? dlcId : 0)
+                .Where(dlcId => dlcId > 0)
+                .Distinct()
+                .ToArray() ?? [];
+
             return new DetectedGame
             {
                 DisplayName = string.IsNullOrWhiteSpace(name) ? installDir : name!,
                 InstallPath = fullPath,
                 Store = Store.Steam,
                 SteamAppId = appId,
+                InstalledDlcAppIds = dlc,
             };
         }
         catch { return null; }
@@ -92,7 +100,7 @@ public sealed class SteamScanner : IStoreScanner
         }
     }
 
-    private static string? FindSteamPath()
+    public static string? FindSteamPath()
     {
         // Current user first, then machine-wide (32-bit view holds WOW6432Node).
         var p = ReadRegistry(Registry.CurrentUser, @"Software\Valve\Steam", "SteamPath");

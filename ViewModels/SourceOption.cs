@@ -10,8 +10,6 @@ public sealed class SourceOption(GameDefinition game)
 {
     public GameDefinition Game { get; } = game;
 
-    public double Yaw => Game.YawConstant!.Value;
-
     /// <summary>Shown in the combo box — just the (already descriptive) game name, no raw enum.</summary>
     public string Display => Game.Name;
 

@@ -18,6 +18,11 @@ public enum Engine
     Riot,        // Valorant (custom UE fork, but its own sens model)
     Overwatch,   // Blizzard's custom engine
     Other,       // known game, engine outside the categories above (e.g. Minecraft / LWJGL)
+    CryEngine,   // Hunt: Showdown
+    Creation,    // Bethesda: Fallout 4/76, Skyrim, Starfield
+    Dunia,       // Far Cry
+    Stingray,    // Fatshark (Vermintide/Darktide), Helldivers 2
+    Snowdrop,    // The Division
 }
 
 /// <summary>

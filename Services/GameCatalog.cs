@@ -1,4 +1,4 @@
-using Source2AllSensitivityConverter.Models;
+﻿using Source2AllSensitivityConverter.Models;
 using Source2AllSensitivityConverter.Services.Appliers;
 
 namespace Source2AllSensitivityConverter.Services;
@@ -15,6 +15,127 @@ public static class GameCatalog
 {
     public static IReadOnlyList<GameDefinition> All { get; } = Build();
 
+    private const string VcfgSensitivity = @"^\s*""sensitivity""\s+""(?<v>-?[0-9.]+)""";
+
+    // Battlefield: degrees per count = k × (GstInput.MouseSensitivity + 0.005). BF4-family k = 0.04 rad
+    // (fits four independent measurements within 0.01%); BF3 k = 0.0092 rad (within 1%).
+    private const double Bf4Yaw = 2.2918311805;
+    private const double Bf3Yaw = 0.5271211715;
+    private const string FrostbiteSensitivity = @"^GstInput\.MouseSensitivity (?<v>-?[0-9.]+)";
+
+    private static GameDefinition Battlefield(string name, int appId, string installDir, double yaw,
+        bool approximate, params string[] profileFiles) => new()
+    {
+        Name = name, Engine = Engine.Frostbite, YawConstant = yaw, SensitivityOffset = 0.005,
+        ApproximateYaw = approximate,
+        SteamAppId = appId, InstallDirHints = [installDir],
+        Applier = profileFiles.Length == 1
+            ? new RegexValueApplier($"{profileFiles[0]}  (GstInput.MouseSensitivity)", profileFiles[0], FrostbiteSensitivity, "0.000000")
+            : new CompositeApplier(
+                profileFiles.Select(f => (IConfigApplier)new RegexValueApplier(
+                    $"{f}  (GstInput.MouseSensitivity)", f, FrostbiteSensitivity, "0.000000")).ToList(),
+                requireAll: false),
+    };
+
+    /// <summary>A Source 1 game: <c>sensitivity</c> written to &lt;install&gt;/&lt;mod&gt;/cfg/autoexec.cfg.</summary>
+    private static GameDefinition SourceGame(string name, int appId, string installDir, string modFolder, string exe) => new()
+    {
+        Name = name, Engine = Engine.Source, YawConstant = SensitivityConverter.SourceYaw,
+        SteamAppId = appId, InstallDirHints = [installDir],
+        MarkerFiles = [$"{modFolder}/gameinfo.txt", exe],
+        Applier = new SourceCfgApplier(modFolder),
+    };
+
+    /// <summary>A GoldSrc game in the shared "Half-Life" folder: autoexec.cfg in the mod folder root.</summary>
+    private static GameDefinition GoldSrcGame(string name, int appId, string modFolder) => new()
+    {
+        Name = name, Engine = Engine.GoldSrc, YawConstant = SensitivityConverter.SourceYaw,
+        SteamAppId = appId, InstallDirHints = ["half-life"],
+        MarkerFiles = ["hl.exe", $"{modFolder}/liblist.gam"],
+        Applier = new SourceCfgApplier(modFolder, cfgSubdir: ""),
+    };
+
+    /// <summary>
+    /// Source 2 games keep the live value in Steam userdata (a local convar file plus its Steam Cloud
+    /// copy, for every Steam account on the PC); autoexec.cfg is also written as a fallback, since
+    /// it only runs when the game is launched with <c>+exec autoexec</c>.
+    /// </summary>
+    private static IConfigApplier SourceTwoApplier(string modFolder, int appId, string localVcfg, string remoteVcfg) =>
+        new CompositeApplier(
+            [
+                new RegexValueApplier($"Steam userdata/<account>/{appId}/local/cfg/{localVcfg}  (\"sensitivity\")",
+                    $@"{{Steam}}\userdata\*\{appId}\local\cfg\{localVcfg}", VcfgSensitivity, "0.000000"),
+                new RegexValueApplier($"Steam userdata/<account>/{appId}/remote/{remoteVcfg}  (\"sensitivity\")",
+                    $@"{{Steam}}\userdata\*\{appId}\remote\{remoteVcfg}", VcfgSensitivity, "0.000000"),
+                new SourceCfgApplier(modFolder),
+            ],
+            requireAll: false);
+
+    /// <summary>
+    /// Writes the regex group <c>v</c> in every existing file matching any of <paramref name="paths"/>.
+    /// Only an existing line is ever changed, so an absent key fails cleanly instead of adding one.
+    /// </summary>
+    private static IConfigApplier Writer(string regex, string key, string format, params string[] paths)
+    {
+        static string Describe(string p) => p.Replace("{", "").Replace("}", "").Replace('\\', '/');
+
+        var writers = paths
+            .Select(p => (IConfigApplier)new RegexValueApplier($"{Describe(p)}  ({key})", p, regex, format))
+            .ToList();
+        return writers.Count == 1 ? writers[0] : new CompositeApplier(writers, requireAll: false);
+    }
+
+    // Call of Duty from MW2019 on: CS2 1.0 == 3.333333 in game, i.e. yaw 0.0066.
+    private const double ModernCodYaw = SensitivityConverter.SourceYaw / 3.333333;
+    private const int CodHqAppId = 1938090;
+
+    // MWII/MWIII: MouseHorizontalSensibility:0.0 = "2.75"; BO6 on: MouseHorizontalSensibility@0;12088;6692 = 1.8.
+    private const string CodSensibility = @"^MouseHorizontalSensibility(?:[:@][0-9.;]+)?\s*=\s*""?(?<v>-?[0-9.]+)";
+
+    /// <summary>A Call of Duty HQ title: per-account g.*.l.txt files tagged with its codename (both copies).</summary>
+    private static IConfigApplier CodHqWriter(string codename) =>
+        Writer(CodSensibility, "MouseHorizontalSensibility", "0.000000",
+            $@"{{LocalAppData}}\Activision\Call of Duty*\players*\*\g.*{codename}*.l.txt*",
+            $@"{{Documents}}\Call of Duty*\players*\*\g.*{codename}*.l.txt*");
+
+    // PUBG: slider S (0-100) -> stored LastConvertedSensitivity, and back.
+    private static double PubgStored(double slider) => 0.02 * Math.Pow(10, (slider - 50) / 50);
+    private static double PubgSlider(double stored) => 50 + 50 * Math.Log10(stored / 0.02);
+    private const string PubgConfig = @"{LocalAppData}\TslGame\Saved\Config\WindowsNoEditor\GameUserSettings.ini";
+    // Inside the mouse map only (it ends at ")))"), the "Normal" entry.
+    private const string PubgNormal = @"\(Mouse,\s*\(Array=\((?:(?!\)\)\)).)*?SensitiveName=""Normal"",";
+
+    // Vermintide 2: degrees per count = 0.0006 × vfov/0.785 × 0.85^-s, at the default vertical FOV 65.
+    private const double Vt2Base = 0.0006 * 65 / 0.785;
+
+    // Rogue Company (aiming.pro): linear through zero below 2, offset-linear from 2 up.
+    private const double RogueYaw = 0.0227289, RogueOffset = 1.1292011492;
+    private static double RogueDegrees(double s)
+        => s < 2 ? (2 + RogueOffset) * RogueYaw * (s / 2) : (s + RogueOffset) * RogueYaw;
+    private static double RogueSetting(double d)
+        => d / RogueYaw - RogueOffset is var r && r < 2 ? 2 * d / ((2 + RogueOffset) * RogueYaw) : d / RogueYaw - RogueOffset;
+
+    /// <summary>A Bethesda Creation Engine game: fMouseHeadingSensitivity in the Prefs ini (and Custom ini if set).</summary>
+    private static IConfigApplier CreationWriter(string folder, string iniPrefix) =>
+        Writer(@"^fMouseHeadingSensitivity=(?<v>-?[0-9.]+)", "fMouseHeadingSensitivity", "0.000000",
+            $@"{{Documents}}\My Games\{folder}\{iniPrefix}Prefs.ini",
+            $@"{{Documents}}\My Games\{folder}\{iniPrefix}Custom.ini");
+
+    /// <summary>A Far Cry (Dunia) game: MouseLookSensitivity attribute in gamerprofile.xml, same scale as CS2.</summary>
+    private static IConfigApplier FarCryWriter(string folder) =>
+        Writer(@"\sMouseLookSensitivity=""(?<v>-?[0-9.]+)""", "MouseLookSensitivity", "0.######",
+            $@"{{Documents}}\My Games\{folder}\gamerprofile.xml");
+
+    /// <summary>
+    /// A convert-only game whose only source is GyroWiki's REAL_WORLD_CALIBRATION (mouse counts per
+    /// degree at in-game sensitivity 1), so yaw = 1 / calibration; marked approximate.
+    /// </summary>
+    private static GameDefinition GyroOnly(string name, int appId, double calibration) => new()
+    {
+        Name = name, Engine = Engine.Other, YawConstant = 1.0 / calibration, ApproximateYaw = true,
+        SteamAppId = appId,
+    };
+
     private static List<GameDefinition> Build()
     {
         const double srcYaw = SensitivityConverter.SourceYaw; // 0.022
@@ -27,7 +148,7 @@ public static class GameCatalog
                 Name = "Counter-Strike 2", Engine = Engine.Source2, YawConstant = srcYaw,
                 SteamAppId = 730, InstallDirHints = ["counter-strike global offensive"],
                 MarkerFiles = ["game/csgo/gameinfo.gi", "game/bin/win64/engine2.dll"],
-                Applier = new SourceCfgApplier("game/csgo"),
+                Applier = SourceTwoApplier("game/csgo", 730, "cs2_user_convars_0_slot0.vcfg", "cs2_user_convars.vcfg"),
             },
             new GameDefinition
             {
@@ -80,10 +201,12 @@ public static class GameCatalog
             },
             new GameDefinition
             {
-                Name = "Deadlock", Engine = Engine.Source2, YawConstant = srcYaw,
+                // m_yaw reads 0.022, but Deadlock turns twice as far per count: CS 1.0 == 0.5
+                // (mouse-sensitivity.com and aiming.pro agree).
+                Name = "Deadlock", Engine = Engine.Source2, YawConstant = srcYaw * 2,
                 SteamAppId = 1422450, InstallDirHints = ["deadlock"],
                 MarkerFiles = ["game/citadel/gameinfo.gi", "game/bin/win64/engine2.dll"],
-                Applier = new SourceCfgApplier("game/citadel"),
+                Applier = SourceTwoApplier("game/citadel", 1422450, "user_convars_0_slot0.vcfg", "user_convars.vcfg"),
             },
             new GameDefinition
             {
@@ -127,6 +250,18 @@ public static class GameCatalog
                 MarkerFiles = ["doi/gameinfo.txt", "doi.exe"],
                 Applier = new SourceCfgApplier("doi"),
             },
+            SourceGame("Left 4 Dead", 500, "left 4 dead", "left4dead", "left4dead.exe"),
+            SourceGame("Half-Life Deathmatch: Source", 360, "half-life 1 source deathmatch", "hl1mp", "hl1mp.exe"),
+            SourceGame("Counter-Strike: Global Offensive (Legacy)", 4465480, "csgo legacy", "csgo", "csgo.exe"),
+            SourceGame("No More Room in Hell", 224260, "nmrih", "nmrih", "nmrih.exe"),
+            SourceGame("Fistful of Frags", 265630, "fistful of frags", "fof", "sdk/hl2.exe"),
+            SourceGame("Zombie Panic! Source", 17500, "zombie panic source", "zps", "zps.exe"),
+            SourceGame("Synergy", 17520, "synergy", "synergy", "synergy.exe"),
+            SourceGame("Nuclear Dawn", 17710, "nuclear dawn", "nucleardawn", "nucleardawn.exe"),
+            SourceGame("Contagion", 238430, "contagion", "contagion", "contagion.exe"),
+            SourceGame("Portal Stories: Mel", 317400, "portal stories mel", "portal_stories", "portal2.exe"),
+            SourceGame("Team Fortress 2 Classified", 3545060, "team fortress 2 classified", "tf2classified", "tf2classified_win64.exe"),
+            SourceGame("Hunt Down The Freeman", 723390, "hunt down the freeman", "hdtf", "hdtf.exe"),
 
             // ---- GoldSrc (Half-Life 1 engine): autoexec.cfg in the mod root, yaw 0.022 ----
             new GameDefinition
@@ -178,6 +313,9 @@ public static class GameCatalog
                 MarkerFiles = ["svencoop.exe", "svencoop/liblist.gam"],
                 Applier = new SourceCfgApplier("svencoop", cfgSubdir: ""),
             },
+            GoldSrcGame("Half-Life: Blue Shift", 130, "bshift"),
+            GoldSrcGame("Ricochet", 60, "ricochet"),
+            GoldSrcGame("Deathmatch Classic", 40, "dmc"),
 
             // ---- Source forks (Respawn): cvar config under Saved Games / Documents ----
             new GameDefinition
@@ -214,31 +352,163 @@ public static class GameCatalog
             },
             new GameDefinition
             {
+                // Sensitivity moved from game.cfg to input.cfg; only an existing line is updated.
                 Name = "Quake Champions", Engine = Engine.IdTech, YawConstant = srcYaw,
-                SteamAppId = 611500, InstallDirHints = ["quake champions"],
-                MarkerFiles = ["QuakeChampions.exe"],
-                Applier = new CvarApplier(
-                    "AppData/Local/id Software/Quake Champions/client/config/input.cfg  (sensitivity)",
-                    UserConfigPaths.QuakeChampions, "sensitivity", setaStyle: true),
+                SteamAppId = 611500, InstallDirHints = ["quake champions", "quakechampions"],
+                MarkerFiles = ["QuakeChampions.exe", "client/bin/pc/QuakeChampions.exe"],
+                Applier = Writer(@"^(?:seta\s+)?sensitivity\s+""?(?<v>-?[0-9.]+)", "sensitivity", "0.######",
+                    @"{LocalAppData}\id Software\Quake Champions\client\config\input.cfg"),
             },
             new GameDefinition
             {
+                // The cvar is m_sensitivity; the game saves it to either .cfg or .local, so both are checked.
                 Name = "DOOM Eternal", Engine = Engine.IdTech, YawConstant = srcYaw,
                 SteamAppId = 782330, InstallDirHints = ["doometernal", "doom eternal"],
                 MarkerFiles = ["DOOMEternalx64vk.exe"],
-                Applier = new CvarApplier(
-                    "Saved Games/id Software/DOOMEternal/base/DOOMEternalConfig.local  (sensitivity)",
-                    UserConfigPaths.DoomEternal, "sensitivity", setaStyle: true),
+                Applier = Writer(@"^(?:seta\s+)?m_sensitivity\s+""?(?<v>-?[0-9.]+)", "m_sensitivity", "0.######",
+                    @"{SavedGames}\id Software\DOOMEternal\base\DOOMEternalConfig.cfg",
+                    @"{SavedGames}\id Software\DOOMEternal\base\DOOMEternalConfig.local"),
             },
             new GameDefinition
             {
-                // MW2019 and newer ("new" IW/Treyarch engine): CS 1.0 == 3.333333, so yaw = 0.0066.
-                Name = "Call of Duty (Modern Warfare 2019 and newer)", Engine = Engine.CallOfDuty,
-                YawConstant = srcYaw / 3.333333,
-                SteamAppId = 1938090,
-                InstallDirHints = ["call of duty modern warfare", "call of duty hq", "call of duty"],
+                // <install>/<SteamID64>/baseq3/qzconfig.cfg: seta sensitivity "2" (m_yaw 0.022).
+                Name = "Quake Live", Engine = Engine.IdTech, YawConstant = srcYaw,
+                SteamAppId = 282440, InstallDirHints = ["quake live"],
+                MarkerFiles = ["quakelive_steam.exe"],
+                Applier = Writer(@"^seta sensitivity ""(?<v>-?[0-9.]+)""", "seta sensitivity", "0.######",
+                    @"{Install}\*\baseq3\qzconfig.cfg"),
+            },
+            // Quake / Quake II remasters and DOOM (2016) are matched by app id only — "quake"/"doom"
+            // folder hints would also catch other id games. Their configs are reset by Steam Cloud.
+            new GameDefinition
+            {
+                Name = "Quake (2021)", Engine = Engine.IdTech, YawConstant = srcYaw,
+                SteamAppId = 2310, MarkerFiles = ["rerelease/Quake_x64_steam.exe"],
+            },
+            new GameDefinition
+            {
+                Name = "Quake II (2023)", Engine = Engine.IdTech, YawConstant = srcYaw, ApproximateYaw = true,
+                SteamAppId = 2320, MarkerFiles = ["rerelease/quake2ex_steam.exe"],
+            },
+            new GameDefinition
+            {
+                Name = "DOOM (2016)", Engine = Engine.IdTech, YawConstant = srcYaw,
+                SteamAppId = 379720, MarkerFiles = ["DOOMx64.exe", "DOOMx64vk.exe"],
+            },
+            new GameDefinition
+            {
+                // Respawn's first Titanfall; m_sensitivity, but the cfg file is unconfirmed.
+                Name = "Titanfall", Engine = Engine.Source, YawConstant = srcYaw, ApproximateYaw = true,
+                SteamAppId = 1454890, MarkerFiles = ["Titanfall.exe"],
+            },
+            new GameDefinition
+            {
+                // Sensitivity is stored server-side (not in cvars.xml).
+                Name = "Destiny 2", Engine = Engine.Other, YawConstant = 0.0066,
+                SteamAppId = 1085660, InstallDirHints = ["destiny 2"],
+                MarkerFiles = ["destiny2.exe", "destiny2launcher.exe"],
+            },
+            new GameDefinition
+            {
+                // Seven indexed MouseSensitivity slots whose meaning is unconfirmed, and the game
+                // overwrites hand edits, so this is convert-only.
+                Name = "Halo: The Master Chief Collection", Engine = Engine.Unreal, YawConstant = 0.0222222,
+                SteamAppId = 976730, InstallDirHints = ["halo the master chief collection"],
+                MarkerFiles = ["mcc/binaries/win64/mcc-win64-shipping.exe"],
+            },
+            new GameDefinition
+            {
+                // Epic only; 1/60 degree per count at sensitivity 1 (CS2 1.0 == 1.32). Cloud-saved settings.
+                Name = "Diabotical", Engine = Engine.Other, YawConstant = 1.0 / 60.0,
+                InstallDirHints = ["diabotical"],
+            },
+
+            // ---- Call of Duty, MW2019 onward (CS2 1.0 == 3.333333, yaw 0.0066). Every title is its own
+            // row — including those inside the shared Call of Duty HQ install — with its own writer. ----
+            new GameDefinition
+            {
+                // Hipfire is the hashed dvar 283349319 in Documents/Call of Duty Modern Warfare/players/config.cfg.
+                Name = "Call of Duty: Modern Warfare (2019)", Engine = Engine.CallOfDuty, YawConstant = ModernCodYaw,
+                SteamAppId = 2000950, InstallDirHints = ["call of duty modern warfare"],
                 MarkerFiles = ["ModernWarfare.exe"],
-                Applier = null,
+                Applier = Writer(@"^setcl 283349319 ""(?<v>-?[0-9.]+)""", "setcl 283349319", "0.######",
+                    @"{Documents}\Call of Duty Modern Warfare\players\config.cfg"),
+            },
+            new GameDefinition
+            {
+                // No sensitivity in any text config (only graphics in player/<id>/config.ini).
+                Name = "Call of Duty: Black Ops Cold War", Engine = Engine.CallOfDuty, YawConstant = ModernCodYaw,
+                SteamAppId = 1985810, InstallDirHints = ["call of duty black ops cold war"],
+                MarkerFiles = ["BlackOpsColdWar.exe"],
+            },
+            new GameDefinition
+            {
+                Name = "Call of Duty: Vanguard", Engine = Engine.CallOfDuty, YawConstant = ModernCodYaw,
+                SteamAppId = 1985820, InstallDirHints = ["call of duty vanguard"],
+                MarkerFiles = ["Vanguard.exe"],
+                Applier = Writer(CodSensibility, "MouseHorizontalSensibility", "0.000000",
+                    @"{Documents}\Call of Duty Vanguard\players\options*"),
+            },
+            new GameDefinition
+            {
+                // settings.<n>.local.cod22.cst per account (verified on disk); "Call of Duty" before July 2025.
+                Name = "Call of Duty: Modern Warfare II (2022)", Engine = Engine.CallOfDuty, YawConstant = ModernCodYaw,
+                SteamAppId = 3595230, InstallDirHints = ["call of duty modern warfare ii"],
+                MarkerFiles = ["cod22-cod.exe"],
+                Applier = Writer(CodSensibility, "MouseHorizontalSensibility", "0.000000",
+                    @"{Documents}\Call of Duty MWII\players\*\settings.*.local.cod22.cst",
+                    @"{Documents}\Call of Duty\players\*\settings.*.local.cod22.cst"),
+            },
+            new GameDefinition
+            {
+                Name = "Call of Duty: Modern Warfare III (2023)", Engine = Engine.CallOfDuty, YawConstant = ModernCodYaw,
+                SteamAppId = 3595270, InstallDirHints = ["call of duty modern warfare iii"],
+                MarkerFiles = ["cod.exe"],
+                Applier = Writer(CodSensibility, "MouseHorizontalSensibility", "0.000000",
+                    @"{Documents}\Call of Duty MWIII\players\*\*.cst",
+                    @"{Documents}\Call of Duty\players\*\gamerprofile*.cst",
+                    @"{Documents}\Call of Duty\players\*\*cod23*.cst"),
+            },
+            new GameDefinition
+            {
+                // g[.cod24].1.0.l.txt0/txt1 per account; both copies are written.
+                Name = "Call of Duty: Black Ops 6", Engine = Engine.CallOfDuty, YawConstant = ModernCodYaw,
+                SteamAppId = 4384550, InstallDirHints = ["call of duty black ops 6"],
+                HostSteamAppId = CodHqAppId, HostDlcAppIds = [2933620, 2933630],
+                MarkerFiles = ["cod-cod24.exe"],
+                Applier = Writer(CodSensibility, "MouseHorizontalSensibility", "0.000000",
+                    @"{Documents}\Call of Duty*\players\*\g.*cod24*.l.txt*",
+                    @"{Documents}\Call of Duty\players\*\g.1.0.l.txt*",
+                    @"{LocalAppData}\Activision\Call of Duty*\players\*\g.*cod24*.l.txt*"),
+            },
+            new GameDefinition
+            {
+                Name = "Call of Duty: Black Ops 7", Engine = Engine.CallOfDuty, YawConstant = ModernCodYaw,
+                HostSteamAppId = CodHqAppId, HostDlcAppIds = [3606480, 3606490, 3606500],
+                Applier = CodHqWriter("cod25"),
+            },
+            new GameDefinition
+            {
+                // Runs on the current Call of Duty client, so it shares that game's settings files.
+                Name = "Call of Duty: Warzone", Engine = Engine.CallOfDuty, YawConstant = ModernCodYaw,
+                HostSteamAppId = CodHqAppId, HostDlcAppIds = [1962663, 2573900],
+                Applier = CodHqWriter("cod25"),
+            },
+            new GameDefinition
+            {
+                // MouseHorizontalSensibility@0;12088;6692 = 1.8 in g.*cod26*.l.txt (verified on the beta).
+                Name = "Call of Duty: Modern Warfare 4", Engine = Engine.CallOfDuty, YawConstant = ModernCodYaw,
+                HostSteamAppId = CodHqAppId, HostDlcAppIds = [4435490],
+                Applier = CodHqWriter("cod26"),
+            },
+            new GameDefinition
+            {
+                // Battle.net only (add its folder manually): <install>/players/config.ini.
+                Name = "Call of Duty: Black Ops 4", Engine = Engine.CallOfDuty, YawConstant = ModernCodYaw,
+                ApproximateYaw = true, InstallDirHints = ["call of duty black ops 4", "black ops 4"],
+                MarkerFiles = ["BlackOps4.exe"],
+                Applier = Writer(@"^mouse_sensitivity\s*=\s*""(?<v>-?[0-9.]+)""", "mouse_sensitivity", "0.######",
+                    @"{Install}\players\config.ini"),
             },
             // ---- Early IW-engine Call of Duty (CS 1.0 == 1, yaw 0.022): players/config[_mp].cfg ----
             new GameDefinition
@@ -266,21 +536,23 @@ public static class GameCatalog
             {
                 // MW2 (2009): <install>/players/config_mp.cfg
                 Name = "Call of Duty: Modern Warfare 2 (2009)", Engine = Engine.CallOfDuty, YawConstant = srcYaw,
-                SteamAppId = 10180, InstallDirHints = ["call of duty modern warfare 2", "modern warfare 2"],
+                SteamAppId = 10180, AdditionalSteamAppIds = [10190],
+                InstallDirHints = ["call of duty modern warfare 2", "modern warfare 2"],
                 MarkerFiles = ["iw4mp.exe", "iw4sp.exe"], Applier = new CodSensitivityApplier(),
             },
             new GameDefinition
             {
                 // MW3 (2011): <install>/players2/config_mp.cfg
                 Name = "Call of Duty: Modern Warfare 3 (2011)", Engine = Engine.CallOfDuty, YawConstant = srcYaw,
-                SteamAppId = 115300, InstallDirHints = ["call of duty modern warfare 3", "modern warfare 3"],
+                SteamAppId = 115300, AdditionalSteamAppIds = [42690],
+                InstallDirHints = ["call of duty modern warfare 3", "modern warfare 3"],
                 MarkerFiles = ["iw5mp.exe", "iw5sp.exe"], Applier = new CodSensitivityApplier(),
             },
             new GameDefinition
             {
                 // Black Ops III (yaw 0.022): plaintext <install>/players/config.ini -> MouseSensitivity = "x".
                 Name = "Call of Duty: Black Ops III", Engine = Engine.CallOfDuty, YawConstant = srcYaw,
-                SteamAppId = 311210, InstallDirHints = ["black ops iii", "black ops 3"],
+                SteamAppId = 311210, InstallDirHints = ["call of duty black ops iii", "black ops iii", "black ops 3"],
                 MarkerFiles = ["BlackOps3.exe"],
                 Applier = new TemplateApplier(
                     inst => System.IO.Path.Combine(inst, "players", "config.ini"),
@@ -288,9 +560,60 @@ public static class GameCatalog
             },
             new GameDefinition
             {
+                // Black Ops (2010): <install>/players/config_mp.cfg.
+                Name = "Call of Duty: Black Ops", Engine = Engine.CallOfDuty, YawConstant = srcYaw,
+                SteamAppId = 42700, AdditionalSteamAppIds = [42710],
+                InstallDirHints = ["call of duty black ops"],
+                MarkerFiles = ["BlackOps.exe", "BlackOpsMP.exe"], Applier = new CodSensitivityApplier(),
+            },
+            new GameDefinition
+            {
+                // Ghosts: <install>/players2/config[_mp].cfg. Hipfire scales with FOV (exact at default FOV).
+                Name = "Call of Duty: Ghosts", Engine = Engine.CallOfDuty, YawConstant = srcYaw, ApproximateYaw = true,
+                SteamAppId = 209160, AdditionalSteamAppIds = [209170],
+                InstallDirHints = ["call of duty ghosts"],
+                MarkerFiles = ["iw6sp64_ship.exe", "iw6mp64_ship.exe"], Applier = new CodSensitivityApplier(),
+            },
+            new GameDefinition
+            {
+                // Advanced Warfare: <install>/players2/config[_mp].cfg. FOV-scaled like Ghosts.
+                Name = "Call of Duty: Advanced Warfare", Engine = Engine.CallOfDuty, YawConstant = srcYaw, ApproximateYaw = true,
+                SteamAppId = 209650, AdditionalSteamAppIds = [209660],
+                InstallDirHints = ["call of duty advanced warfare"],
+                MarkerFiles = ["s1_sp64_ship.exe", "s1_mp64_ship.exe"], Applier = new CodSensitivityApplier(),
+            },
+            new GameDefinition
+            {
+                // MW Remastered: the sensitivity dvar is saved by hash — seta 0xBC3E3CAE "5" in players2.
+                Name = "Call of Duty: Modern Warfare Remastered", Engine = Engine.CallOfDuty, YawConstant = srcYaw,
+                ApproximateYaw = true,
+                SteamAppId = 393080, AdditionalSteamAppIds = [393100],
+                InstallDirHints = ["call of duty modern warfare remastered"],
+                MarkerFiles = ["h1_sp64_ship.exe", "h1_mp64_ship.exe"],
+                Applier = Writer(@"^seta (?i:0xBC3E3CAE) ""(?<v>-?[0-9.]+)""", "seta 0xBC3E3CAE", "0.######",
+                    @"{Install}\players2\config.cfg", @"{Install}\players2\config_mp.cfg"),
+            },
+            new GameDefinition
+            {
+                // Infinite Warfare: sensitivity is in the binary settings.zip.iw7 -> convert-only.
+                Name = "Call of Duty: Infinite Warfare", Engine = Engine.CallOfDuty, YawConstant = srcYaw, ApproximateYaw = true,
+                SteamAppId = 292730, InstallDirHints = ["call of duty - infinite warfare", "infinite warfare"],
+                MarkerFiles = ["iw7_ship.exe"],
+            },
+            new GameDefinition
+            {
+                // WWII: sensitivity is in an unidentified binary file in players2 -> convert-only.
+                Name = "Call of Duty: WWII", Engine = Engine.CallOfDuty, YawConstant = srcYaw, ApproximateYaw = true,
+                SteamAppId = 476600, AdditionalSteamAppIds = [476620],
+                InstallDirHints = ["call of duty wwii"],
+                MarkerFiles = ["s2_sp64_ship.exe", "s2_mp64_ship.exe"],
+            },
+            new GameDefinition
+            {
                 // Black Ops II (yaw 0.022): settings are in binary .cgp profiles -> convert-only.
                 Name = "Call of Duty: Black Ops II", Engine = Engine.CallOfDuty, YawConstant = srcYaw,
-                SteamAppId = 202970, InstallDirHints = ["black ops ii", "black ops 2"],
+                SteamAppId = 202970, AdditionalSteamAppIds = [202990, 212910],
+                InstallDirHints = ["call of duty black ops ii", "black ops ii", "black ops 2"],
                 MarkerFiles = ["t6mp.exe", "t6sp.exe", "t6zm.exe"],
                 Applier = null,
             },
@@ -306,7 +629,8 @@ public static class GameCatalog
             },
             new GameDefinition
             {
-                Name = "Marvel Rivals", Engine = Engine.Unreal, YawConstant = 0.0066, ApproximateYaw = true,
+                // Yaw 0.0175 (CS 1.0 == 1.257): mouse-sensitivity.com, aiming.pro and KovaaK's agree.
+                Name = "Marvel Rivals", Engine = Engine.Unreal, YawConstant = 0.0175,
                 SteamAppId = 2767030, InstallDirHints = ["marvel rivals", "marvelrivals"],
                 MarkerFiles = ["MarvelRivals_Launcher.exe", "MarvelGame"],
                 Applier = null,
@@ -323,14 +647,15 @@ public static class GameCatalog
             },
             new GameDefinition
             {
-                Name = "Halo Infinite", Engine = Engine.Unreal, YawConstant = 0.022, ApproximateYaw = true,
+                // Yaw 0.0225 at Sensitivity Scale 1.0: aiming.pro, GyroWiki and a Steam guide agree.
+                Name = "Halo Infinite", Engine = Engine.Unreal, YawConstant = 0.0225,
                 SteamAppId = 1240440, InstallDirHints = ["halo infinite"],
                 MarkerFiles = ["HaloInfinite.exe"],
                 Applier = null,
             },
             new GameDefinition
             {
-                Name = "BattleBit Remastered", Engine = Engine.Unity, YawConstant = 0.0005, ApproximateYaw = true,
+                Name = "BattleBit Remastered", Engine = Engine.Unity, YawConstant = 0.0005,
                 SteamAppId = 671860, InstallDirHints = ["battlebit"],
                 MarkerFiles = ["BattleBit.exe"],
                 Applier = null,
@@ -349,27 +674,34 @@ public static class GameCatalog
             },
             new GameDefinition
             {
-                // CS 1.0 == 0.010214.
+                // CS 1.0 == 0.010214. GameUserSettings.ini: MouseSensitivity=0.035000 (verified on disk).
                 Name = "Chivalry 2", Engine = Engine.Unreal, YawConstant = srcYaw / 0.010214,
                 SteamAppId = 1824220, InstallDirHints = ["chivalry 2", "chivalry2"],
                 MarkerFiles = ["TBL/Binaries/Win64/Chivalry2-Win64-Shipping.exe"],
-                Applier = null,
+                Applier = new RegexValueApplier(
+                    "LocalAppData/Chivalry 2/Saved/Config/WindowsNoEditor/GameUserSettings.ini  (MouseSensitivity)",
+                    @"{LocalAppData}\Chivalry 2\Saved\Config\WindowsNoEditor\GameUserSettings.ini",
+                    @"^MouseSensitivity=(?<v>-?[0-9.]+)", "0.000000"),
             },
             new GameDefinition
             {
-                // CS 1.0 == 3.432838.
+                // CS 1.0 == 3.432838. UDKInput.ini [Engine.PlayerInput]: MouseSensitivity=9.580148 (verified).
                 Name = "Chivalry: Medieval Warfare", Engine = Engine.Unreal, YawConstant = srcYaw / 3.432838,
-                SteamAppId = 219640, InstallDirHints = ["chivalry medieval warfare"],
+                SteamAppId = 219640, InstallDirHints = ["chivalry medieval warfare", "chivalrymedievalwarfare"],
                 MarkerFiles = ["Binaries/Win64/UDK.exe", "Binaries/Win32/UDK.exe"],
-                Applier = null,
+                Applier = new RegexValueApplier(
+                    "Documents/My Games/Chivalry Medieval Warfare/UDKGame/Config/UDKInput.ini  (MouseSensitivity)",
+                    @"{Documents}\My Games\Chivalry Medieval Warfare\UDKGame\Config\UDKInput.ini",
+                    @"^MouseSensitivity=(?<v>-?[0-9.]+)", "0.000000"),
             },
             new GameDefinition
             {
-                // CS 1.0 == 0.125714.
+                // CS 1.0 == 0.125714 (config scale = slider scale). Windows\ or WinGDK\ (Microsoft Store).
                 Name = "Ready or Not", Engine = Engine.Unreal, YawConstant = srcYaw / 0.125714,
                 SteamAppId = 1144200, InstallDirHints = ["ready or not", "readyornot"],
                 MarkerFiles = ["ReadyOrNot/Binaries/Win64/ReadyOrNot-Win64-Shipping.exe"],
-                Applier = null,
+                Applier = Writer(@"^MouseSensitivity=(?<v>-?[0-9.]+)", "MouseSensitivity", "0.000000",
+                    @"{LocalAppData}\ReadyOrNot\Saved\Config\Win*\GameUserSettings.ini"),
             },
             new GameDefinition
             {
@@ -381,11 +713,40 @@ public static class GameCatalog
             },
             new GameDefinition
             {
-                // CS 1.0 == 4.
+                // CS 1.0 == 4 (config scale = slider scale). ROInput.ini [Engine.PlayerInput].
                 Name = "Rising Storm 2: Vietnam", Engine = Engine.Unreal, YawConstant = srcYaw / 4.0,
                 SteamAppId = 418460, InstallDirHints = ["rising storm 2"],
-                MarkerFiles = ["ROGame.exe", "Binaries/Win64/ROGame.exe"],
-                Applier = null,
+                MarkerFiles = ["ROGame.exe", "Binaries/Win64/ROGame.exe", "Binaries/Win64/RisingStorm2.exe"],
+                Applier = Writer(@"^MouseSensitivity=(?<v>-?[0-9.]+)", "MouseSensitivity", "0.000000",
+                    @"{Documents}\My Games\Rising Storm 2\ROGame\Config\ROInput.ini"),
+            },
+            new GameDefinition
+            {
+                // Control.ini is JSON despite the name: "MouseSensitivity": 0.33 (yaw 0.125, CS 1.0 == 0.176).
+                Name = "Escape from Tarkov", Engine = Engine.Unity, YawConstant = 0.125,
+                SteamAppId = 3932890, InstallDirHints = ["escape from tarkov", "escapefromtarkov"],
+                MarkerFiles = ["EscapeFromTarkov.exe"],
+                Applier = Writer(@"^\s*""MouseSensitivity"":\s*(?<v>-?[0-9.]+)", "MouseSensitivity", "0.######",
+                    @"{AppData}\Battlestate Games\Escape from Tarkov\Settings\Control.ini"),
+            },
+            new GameDefinition
+            {
+                // Controls.json: "mouseSensitivity": 1.53. Yaw 0.14 (KovaaK's list); the folder is Steam Cloud synced.
+                Name = "Insurgency: Sandstorm", Engine = Engine.Unreal, YawConstant = 0.14, ApproximateYaw = true,
+                SteamAppId = 581320, InstallDirHints = ["sandstorm"],
+                MarkerFiles = ["Insurgency.exe", "Insurgency/Binaries/Win64/InsurgencyClient-Win64-Shipping.exe"],
+                Applier = Writer(@"""mouseSensitivity"":\s*(?<v>-?[0-9.]+)", "mouseSensitivity", "0.######",
+                    @"{LocalAppData}\Insurgency\Saved\SaveGames\Profile\Controls.json"),
+            },
+            new GameDefinition
+            {
+                // <install>/user/profiles/default/attributes.xml: <Attr name="MouseSensitivity" value="0.22"/>.
+                // Yaw 0.0429718 (0.00075 rad): aiming.pro and DPI Wizard's measurements agree.
+                Name = "Hunt: Showdown 1896", Engine = Engine.CryEngine, YawConstant = 0.0429718,
+                SteamAppId = 594650, InstallDirHints = ["hunt showdown"],
+                MarkerFiles = ["hunt.exe"],
+                Applier = Writer(@"<Attr name=""MouseSensitivity"" value=""(?<v>-?[0-9.]+)""", "MouseSensitivity", "0.######",
+                    @"{Install}\user\profiles\default\attributes.xml"),
             },
             new GameDefinition
             {
@@ -399,12 +760,27 @@ public static class GameCatalog
             // ---- Known engine, no reliable linear conversion (listed, greyed, no output) ----
             new GameDefinition
             {
-                // PUBG's sensitivity is FOV/scope-dependent (LastConvertedMouseSensitivity); public
-                // yaw values disagree by ~10x, so we list it but don't risk a wrong conversion.
-                Name = "PUBG: BATTLEGROUNDS", Engine = Engine.Unreal, YawConstant = null,
+                // The 0-100 slider is exponential: stored LastConvertedSensitivity = 0.02 × 10^((S-50)/50),
+                // and degrees per count = that × 2.2222 × FOV/80 (DPI Wizard's measurements, KovaaK's, aiming.pro
+                // and aim-dojo agree). Shown for first-person at FOV 90; it scales with FpsCameraFov (TPP is 80).
+                Name = "PUBG: BATTLEGROUNDS", Engine = Engine.Unreal, ApproximateYaw = true,
+                DegreesPerCount = s => PubgStored(s) * 2.49975,
+                SettingForDegrees = d => PubgSlider(d / 2.49975),
                 SteamAppId = 578080, InstallDirHints = ["pubg"],
                 MarkerFiles = ["TslGame/Binaries/Win64/TslGame.exe"],
-                Applier = null,
+                // The game applies LastConvertedSensitivity; Sensitivity only positions the slider, so
+                // both are written. The "Normal" mouse entry exists once sensitivity was changed in-game.
+                Applier = new CompositeApplier(
+                [
+                    new RegexValueApplier(
+                        "LocalAppData/TslGame/Saved/Config/WindowsNoEditor/GameUserSettings.ini  (Mouse \"Normal\" Sensitivity)",
+                        PubgConfig, PubgNormal + @"Sensitivity=(?<v>-?[0-9.]+)", "0.000000"),
+                    new TransformApplier(
+                        new RegexValueApplier(
+                            "LocalAppData/TslGame/Saved/Config/WindowsNoEditor/GameUserSettings.ini  (Mouse \"Normal\" LastConvertedSensitivity)",
+                            PubgConfig, PubgNormal + @"Sensitivity=[-0-9.]+,LastConvertedSensitivity=(?<v>-?[0-9.]+)", "0.000000"),
+                        PubgStored, PubgSlider),
+                ]),
             },
             // ---- Other engines with verified configs + yaw constants ----
             new GameDefinition
@@ -426,15 +802,554 @@ public static class GameCatalog
                 MarkerFiles = ["RainbowSix.exe", "RainbowSixGame.exe"],
                 Applier = new R6SiegeApplier(UserConfigPaths.RainbowSixSiege),
             },
+
+            // ---- Battlefield (Frostbite): turn rate = k × (value + 0.005), fitted to measured data ----
+            Battlefield("Battlefield 4", 1238860, "battlefield 4", Bf4Yaw, approximate: false,
+                @"{Documents}\Battlefield 4\settings\PROFSAVE_profile"),
+            Battlefield("Battlefield 2042", 1517290, "battlefield 2042", Bf4Yaw, approximate: false,
+                @"{Documents}\Battlefield 2042\settings\PROFSAVE_profile"),
+            Battlefield("Battlefield 1", 1238840, "battlefield 1", Bf4Yaw, approximate: true,
+                @"{Documents}\Battlefield 1\settings\PROFSAVE_profile",
+                @"{Documents}\Battlefield 1\settings\PROFSAVE_profile_synced"),
+            Battlefield("Battlefield V", 1238810, "battlefield v", Bf4Yaw, approximate: true,
+                @"{Documents}\Battlefield V\settings\PROFSAVE_profile",
+                @"{Documents}\Battlefield V\settings\PROFSAVE_profile_synced"),
+            Battlefield("Battlefield 3", 1238820, "battlefield 3", Bf3Yaw, approximate: true,
+                @"{Documents}\Battlefield 3\settings\PROF_SAVE_profile"),
+            new GameDefinition
+            {
+                // In-game slider (0-200): degrees per count = 0.00173624 × (UI + 4/3), measured by DPI Wizard and
+                // identical to aiming.pro's 2.31496° × (config + 0.001) with config = UI / 1333.33. The profile
+                // (settings\<platform>\PROFSAVEbf6mp_profile) stores that config value.
+                Name = "Battlefield 6", Engine = Engine.Frostbite, YawConstant = 0.00173624, SensitivityOffset = 4.0 / 3,
+                ApproximateYaw = true,
+                SteamAppId = 2807960, InstallDirHints = ["battlefield 6", "battlefield6"],
+                MarkerFiles = ["bf6.exe", "Battlefield6.exe"],
+                Applier = TransformApplier.Scaled(
+                    Writer(FrostbiteSensitivity, "GstInput.MouseSensitivity", "0.000000",
+                        @"{Documents}\Battlefield 6\settings\*\PROFSAVEbf6mp_profile"),
+                    1 / 1333.3333333333),
+            },
+            new GameDefinition
+            {
+                // Degrees per count = 0.0069452 + 0.00208347 × slider% (mouse-sensitivity.com calculator).
+                Name = "Star Wars Battlefront II (2017)", Engine = Engine.Frostbite,
+                YawConstant = 0.00208347, SensitivityOffset = 0.0069452 / 0.00208347, ApproximateYaw = true,
+                SteamAppId = 1237950, InstallDirHints = ["star wars battlefront ii"],
+                MarkerFiles = ["starwarsbattlefrontii.exe"],
+            },
+
+            // ---- Bethesda Creation Engine: degrees per count = 180 × fMouseHeadingXScale × value ----
+            new GameDefinition
+            {
+                // fMouseHeadingXScale 0.021 -> 3.78° per unit (Nexus measurement, matches a calculator data point).
+                Name = "Fallout 4", Engine = Engine.Creation, YawConstant = 3.78,
+                SteamAppId = 377160, InstallDirHints = ["fallout 4"],
+                MarkerFiles = ["Fallout4.exe", "Fallout4Launcher.exe"],
+                Applier = CreationWriter("Fallout4", "Fallout4"),
+            },
+            new GameDefinition
+            {
+                Name = "Fallout 76", Engine = Engine.Creation, YawConstant = 3.78,
+                SteamAppId = 1151340, InstallDirHints = ["fallout76", "fallout 76"],
+                MarkerFiles = ["Fallout76.exe"],
+                Applier = CreationWriter("Fallout 76", "Fallout76"),
+            },
+            new GameDefinition
+            {
+                // Same formula with Skyrim's fMouseHeadingXScale 0.02 (not measured on Skyrim itself).
+                Name = "The Elder Scrolls V: Skyrim Special Edition", Engine = Engine.Creation, YawConstant = 3.6,
+                ApproximateYaw = true,
+                SteamAppId = 489830, InstallDirHints = ["skyrim special edition"],
+                MarkerFiles = ["SkyrimSE.exe", "SkyrimSELauncher.exe"],
+                Applier = Writer(@"^fMouseHeadingSensitivity=(?<v>-?[0-9.]+)", "fMouseHeadingSensitivity", "0.000000",
+                    @"{Documents}\My Games\Skyrim Special Edition*\SkyrimPrefs.ini",
+                    @"{Documents}\My Games\Skyrim Special Edition*\SkyrimCustom.ini"),
+            },
+            new GameDefinition
+            {
+                // At fLookSpeedYaw 1.0. The key appears once Mouse Look Sensitivity is changed in-game.
+                Name = "Starfield", Engine = Engine.Creation, YawConstant = 3.78,
+                SteamAppId = 1716740, InstallDirHints = ["starfield"],
+                MarkerFiles = ["Starfield.exe"],
+                Applier = CreationWriter("Starfield", "Starfield"),
+            },
+
+            // ---- Far Cry (Dunia): gamerprofile.xml MouseLookSensitivity is on the CS2 scale ----
+            new GameDefinition
+            {
+                Name = "Far Cry 5", Engine = Engine.Dunia, YawConstant = srcYaw,
+                SteamAppId = 552520, InstallDirHints = ["farcry5", "far cry 5"],
+                MarkerFiles = ["bin/FarCry5.exe"],
+                Applier = FarCryWriter("Far Cry 5"),
+            },
+            new GameDefinition
+            {
+                Name = "Far Cry New Dawn", Engine = Engine.Dunia, YawConstant = srcYaw,
+                SteamAppId = 939960, InstallDirHints = ["far cry new dawn"],
+                MarkerFiles = ["bin/FarCryNewDawn.exe"],
+                Applier = FarCryWriter("Far Cry New Dawn"),
+            },
+            new GameDefinition
+            {
+                Name = "Far Cry 6", Engine = Engine.Dunia, YawConstant = srcYaw,
+                SteamAppId = 2369390, InstallDirHints = ["far cry 6"],
+                MarkerFiles = ["bin/FarCry6.exe"],
+                Applier = FarCryWriter("Far Cry 6"),
+            },
+
+            // ---- Auto-apply: confirmed config lines ----
+            new GameDefinition
+            {
+                // Yaw 0.01 (aiming.pro, sensgod). UserSettings.json FPP_MouseX / FPP_MouseY "value"; the game
+                // resets values outside 1-30.
+                Name = "Cyberpunk 2077", Engine = Engine.REDengine, YawConstant = 0.01, ApproximateYaw = true,
+                SteamAppId = 1091500, InstallDirHints = ["cyberpunk 2077"],
+                MarkerFiles = ["bin/x64/Cyberpunk2077.exe"],
+                Applier = Writer(@"""name"":\s*""FPP_Mouse[XY]"",\s*""type"":\s*""float"",\s*""value"":\s*(?<v>-?[0-9.]+)",
+                    "FPP_MouseX / FPP_MouseY", "0.0#####",
+                    @"{LocalAppData}\CD Projekt Red\Cyberpunk 2077\UserSettings.json"),
+            },
+            new GameDefinition
+            {
+                // Config holds the slider × 100 (MouseXSensitivity=600 at slider 6). Yaw 0.0133667 per
+                // slider unit at FOV 100, scaling with FOV (aiming.pro).
+                Name = "Deep Rock Galactic", Engine = Engine.Unreal, YawConstant = 0.0133667006, ApproximateYaw = true,
+                SteamAppId = 548430, InstallDirHints = ["deep rock galactic"],
+                MarkerFiles = ["FSD.exe"],
+                Applier = TransformApplier.Scaled(
+                    Writer(@"^Mouse[XY]Sensitivity=(?<v>-?[0-9.]+)", "MouseXSensitivity / MouseYSensitivity", "0.000000",
+                        @"{Install}\FSD\Saved\Config\WindowsNoEditor\GameUserSettings.ini"),
+                    100),
+            },
+            new GameDefinition
+            {
+                // Degrees per count = 0.0006 × vfov/0.785 × 0.85^-s (decompiled source), at the default FOV 65.
+                Name = "Warhammer: Vermintide 2", Engine = Engine.Stingray, ApproximateYaw = true,
+                DegreesPerCount = s => Vt2Base * Math.Pow(0.85, -s),
+                SettingForDegrees = d => -Math.Log(d / Vt2Base) / Math.Log(0.85),
+                SteamAppId = 552500, InstallDirHints = ["warhammer vermintide 2"],
+                MarkerFiles = ["binaries/vermintide2.exe", "launcher/launcher.exe"],
+                Applier = Writer(@"^\s*mouse_look_sensitivity\s*=\s*(?<v>-?[0-9.]+)", "mouse_look_sensitivity", "0.######",
+                    @"{AppData}\Fatshark\Vermintide 2\user_settings.config"),
+            },
+            new GameDefinition
+            {
+                // input_settings.config: mouse_sensitivity = [ x y ] (both written). Yaw from xbitlabs only.
+                Name = "HELLDIVERS 2", Engine = Engine.Stingray, YawConstant = 0.573, ApproximateYaw = true,
+                SteamAppId = 553850, InstallDirHints = ["helldivers 2"],
+                MarkerFiles = ["bin/helldivers2.exe"],
+                Applier = new CompositeApplier(
+                [
+                    new RegexValueApplier("Steam userdata/<account>/553850/remote/input_settings.config  (mouse_sensitivity x)",
+                        @"{Steam}\userdata\*\553850\remote\input_settings.config",
+                        @"\bmouse_sensitivity\s*=\s*\[\s*(?<v>-?[0-9.eE+]+)", "0.000000"),
+                    new RegexValueApplier("Steam userdata/<account>/553850/remote/input_settings.config  (mouse_sensitivity y)",
+                        @"{Steam}\userdata\*\553850\remote\input_settings.config",
+                        @"\bmouse_sensitivity\s*=\s*\[\s*[-0-9.eE+]+\s+(?<v>-?[0-9.eE+]+)", "0.000000"),
+                ]),
+            },
+            new GameDefinition
+            {
+                // Yaw 0.5 (xbitlabs, GyroWiki). Per-profile XML in Steam userdata: <mouseLookSensitivity>.
+                Name = "Risk of Rain 2", Engine = Engine.Unity, YawConstant = 0.5,
+                SteamAppId = 632360, InstallDirHints = ["risk of rain 2"],
+                MarkerFiles = ["Risk of Rain 2.exe"],
+                Applier = Writer(@"<mouseLookSensitivity>(?<v>-?[0-9.]+)</mouseLookSensitivity>", "mouseLookSensitivity", "0.######",
+                    @"{Steam}\userdata\*\632360\remote\UserProfiles\*.xml"),
+            },
+            new GameDefinition
+            {
+                // Yaw ≈ 0.35 (GyroWiki, mouse-sensitivity.com). <install>/config/dusk.ini: mousesensitivity = x.
+                Name = "DUSK", Engine = Engine.Unity, YawConstant = 0.35, ApproximateYaw = true,
+                SteamAppId = 519860, InstallDirHints = ["dusk"],
+                MarkerFiles = ["DUSK.exe", "Duskworld.exe"],
+                Applier = Writer(@"^\s*mousesensitivity\s*=\s*(?<v>-?[0-9.]+)", "mousesensitivity", "0.########",
+                    @"{Install}\config\dusk.ini"),
+            },
+            new GameDefinition
+            {
+                // Degrees per count = 0.5625 × (s + 0.3)³ at any FOV (mouse-sensitivity.com calculator).
+                // UserOptions.ini MouseSensitivity= appears once sensitivity is changed in-game.
+                Name = "PlanetSide 2", Engine = Engine.Other, ApproximateYaw = true,
+                DegreesPerCount = s => 0.5625 * Math.Pow(s + 0.3, 3),
+                SettingForDegrees = d => Math.Cbrt(d / 0.5625) - 0.3,
+                SteamAppId = 218230, InstallDirHints = ["planetside 2"],
+                MarkerFiles = ["PlanetSide2_x64.exe", "LaunchPad.exe"],
+                Applier = Writer(@"^MouseSensitivity=(?<v>-?[0-9.]+)", "MouseSensitivity", "0.000000",
+                    @"{Install}\UserOptions.ini"),
+            },
+
+            // ---- Convert-only: conversion known, sensitivity not in a writable local file ----
+            new GameDefinition
+            {
+                // Yaw 0.0033 (aiming.pro, mouse-sensitivity.com). No sensitivity config.
+                Name = "Marathon", Engine = Engine.Other, YawConstant = 0.0033,
+                SteamAppId = 3065800, InstallDirHints = ["marathon"], MarkerFiles = ["MarathonLauncher.exe"],
+            },
+            new GameDefinition
+            {
+                // Yaw 0.0499 at FOV 100, scaling with FOV (mouse-sensitivity.com).
+                Name = "FragPunk", Engine = Engine.Unreal, YawConstant = 0.0499127, ApproximateYaw = true,
+                SteamAppId = 2943650, AdditionalSteamAppIds = [3407330], InstallDirHints = ["fragpunk"],
+                MarkerFiles = ["FragPunk.exe"],
+            },
+            new GameDefinition
+            {
+                // Yaw 0.102 at FOV 90 (mouse-sensitivity.com).
+                Name = "Arena Breakout: Infinite", Engine = Engine.Unreal, YawConstant = 0.102374, ApproximateYaw = true,
+                SteamAppId = 2073620, InstallDirHints = ["abinfinite"],
+            },
+            new GameDefinition
+            {
+                // Yaw 0.01 × "Mouse Sensitivity" with Horizontal Sensitivity 1 (aiming.pro, KovaaK's). Editing
+                // its ini files is against the game's ToS, so this is never written.
+                Name = "Delta Force", Engine = Engine.Unreal, YawConstant = 0.01, ApproximateYaw = true,
+                SteamAppId = 2507950, InstallDirHints = ["delta force"],
+            },
+            new GameDefinition
+            {
+                // Yaw = 0.00010416 × FOV (KovaaK's, aiming.pro); shown at FOV 90.
+                Name = "Splitgate", Engine = Engine.Unreal, YawConstant = 0.0093740625, ApproximateYaw = true,
+                SteamAppId = 677620, InstallDirHints = ["splitgate"], MarkerFiles = ["PortalWars.exe"],
+            },
+            new GameDefinition
+            {
+                // aiming.pro's FOV formula at FOV 90; the config keys were removed from the game.
+                Name = "SPLITGATE: Arena Reloaded", Engine = Engine.Unreal, YawConstant = 0.0111664, ApproximateYaw = true,
+                SteamAppId = 2918300, InstallDirHints = ["splitgate 2"],
+            },
+            new GameDefinition
+            {
+                // aiming.pro (approximate): linear through zero below 2, offset above.
+                Name = "Rogue Company", Engine = Engine.Unreal, ApproximateYaw = true,
+                DegreesPerCount = RogueDegrees, SettingForDegrees = RogueSetting,
+                SteamAppId = 872200, InstallDirHints = ["rogue company"], MarkerFiles = ["RogueCompany.exe"],
+            },
+            new GameDefinition
+            {
+                // Degrees per count = 0.0075661 × s + 0.0343915 at the default FOV (aiming.pro). Slow
+                // sensitivities (below about CS2 1.56) can't be reached in-game.
+                Name = "Warframe", Engine = Engine.Other, YawConstant = 0.007566132006,
+                SensitivityOffset = 3600.0 / 104677.0 / 0.007566132006, ApproximateYaw = true,
+                SteamAppId = 230410, InstallDirHints = ["warframe"],
+            },
+            new GameDefinition
+            {
+                // Degrees per count = 0.0044691 × (s + 2.5641) (aiming.pro, approximate).
+                Name = "Tom Clancy's The Division 2", Engine = Engine.Snowdrop, YawConstant = 0.0044691,
+                SensitivityOffset = 2.5640871764, ApproximateYaw = true,
+                SteamAppId = 2221490, InstallDirHints = ["the division 2"], MarkerFiles = ["TheDivision2.exe"],
+            },
+            new GameDefinition
+            {
+                // Same input model as Siege: yaw 0.00572958 (mouse-sensitivity.com, sensgod, xbitlabs).
+                Name = "Tom Clancy's Rainbow Six Extraction", Engine = Engine.Other, YawConstant = 0.00572958,
+                SteamAppId = 2379390, InstallDirHints = ["rainbow six extraction"], MarkerFiles = ["R6-Extraction.exe"],
+            },
+            new GameDefinition
+            {
+                // Yaw = FOV × 3/32768 (mouse-sensitivity.com; KovaaK's within 0.4%), at the default FOV 100.
+                Name = "Paladins", Engine = Engine.Unreal, YawConstant = 100 * 3.0 / 32768, ApproximateYaw = true,
+                SteamAppId = 444090, InstallDirHints = ["paladins"], MarkerFiles = ["Binaries/Win64/Paladins.exe"],
+            },
+            new GameDefinition
+            {
+                // Yaw 0.1375 at 100% Windows display scaling (aiming.pro, mouse-sensitivity.com).
+                Name = "Krunker", Engine = Engine.Other, YawConstant = 0.137509549274, ApproximateYaw = true,
+                SteamAppId = 1408720, InstallDirHints = ["krunker"],
+            },
+            new GameDefinition
+            {
+                // Degrees per count = (FOV/80) × 0.0124389 × (s + 1.4609) (aiming.pro, mouse-sensitivity.com).
+                Name = "Gears 5", Engine = Engine.Unreal, YawConstant = 0.012438884908, SensitivityOffset = 1.460875,
+                ApproximateYaw = true,
+                SteamAppId = 1097840, InstallDirHints = ["gears5"],
+            },
+            new GameDefinition
+            {
+                // mouse-sensitivity.com, at the default FOV 80: 0.01225 + 0.002275 × s up to 10, then 0.0035 × s.
+                Name = "Gears of War: E-Day", Engine = Engine.Unreal, ApproximateYaw = true,
+                DegreesPerCount = s => s <= 10 ? 0.01225 + 0.002275 * s : 0.0035 * s,
+                SettingForDegrees = d => d <= 0.035 ? (d - 0.01225) / 0.002275 : d / 0.0035,
+                SteamAppId = 3010850, InstallDirHints = ["gowedday"],
+            },
+            new GameDefinition
+            {
+                // Yaw = 0.054 × tan(FOV/2) (mouse-sensitivity.com), at FOV 90. Settings are online storage.
+                Name = "Enlisted", Engine = Engine.Other, YawConstant = 0.054, ApproximateYaw = true,
+                SteamAppId = 2051620, InstallDirHints = ["enlisted"], MarkerFiles = ["enlisted_BE.exe"],
+            },
+            new GameDefinition
+            {
+                // Yaw 0.1749825 at FOV 90 (aiming.pro); which ini key it maps to is unconfirmed.
+                Name = "Squad", Engine = Engine.Unreal, YawConstant = 0.1749825, ApproximateYaw = true,
+                SteamAppId = 393380, InstallDirHints = ["squad"], MarkerFiles = ["Squad.exe", "squad_launcher.exe"],
+            },
+            new GameDefinition
+            {
+                // Yaw 1/5.6 at the default FOV (aiming.pro, sensgod); the preset XML value.
+                Name = "DayZ", Engine = Engine.Other, YawConstant = 0.178571428571, ApproximateYaw = true,
+                SteamAppId = 221100, InstallDirHints = ["dayz"], MarkerFiles = ["DayZ_BE.exe"],
+            },
+            new GameDefinition
+            {
+                // Exponential: degrees per count ≈ 0.0121909 × e^(1.84543 × s) (aiming.pro, approximate).
+                Name = "Arma 3", Engine = Engine.Other, ApproximateYaw = true,
+                DegreesPerCount = s => 0.0121909 * Math.Exp(1.84543 * s),
+                SettingForDegrees = d => Math.Log(d / 0.0121909) / 1.84543,
+                SteamAppId = 107410, InstallDirHints = ["arma 3"], MarkerFiles = ["arma3_x64.exe", "arma3launcher.exe"],
+            },
+            new GameDefinition
+            {
+                // From the decompiled source: 0.001 rad × tan(vfov/2)/tan(30°), at the default FOV 65.
+                Name = "Warhammer 40,000: Darktide", Engine = Engine.Stingray, YawConstant = 0.063222, ApproximateYaw = true,
+                SteamAppId = 1361210, InstallDirHints = ["warhammer 40,000 darktide"],
+            },
+            new GameDefinition
+            {
+                // Displayed value (internal × 10); yaw 0.015 (aiming.pro, GyroWiki). Stored in binary saves.
+                Name = "PAYDAY 2", Engine = Engine.Other, YawConstant = 0.015,
+                SteamAppId = 218620, InstallDirHints = ["payday 2"], MarkerFiles = ["PAYDAY2.exe", "payday2_win32_release.exe"],
+            },
+            new GameDefinition
+            {
+                // Yaw 0.07 (aiming.pro, GyroWiki).
+                Name = "PAYDAY 3", Engine = Engine.Unreal, YawConstant = 0.07,
+                SteamAppId = 1272080, InstallDirHints = ["payday3"], MarkerFiles = ["PAYDAY3.exe"],
+            },
+            new GameDefinition
+            {
+                // UE3 rotation unit 360/65536 per count (GyroWiki); scales with FOV.
+                Name = "Killing Floor 2", Engine = Engine.Unreal, YawConstant = 360.0 / 65536, ApproximateYaw = true,
+                SteamAppId = 232090, InstallDirHints = ["killingfloor2"], MarkerFiles = ["Binaries/Win64/KFGame.exe"],
+            },
+            new GameDefinition
+            {
+                // UE3 rotation unit (aiming.pro, GyroWiki). The real value is in a binary profile.
+                Name = "Borderlands 2", Engine = Engine.Unreal, YawConstant = 360.0 / 65536,
+                SteamAppId = 49520, InstallDirHints = ["borderlands 2"], MarkerFiles = ["Binaries/Win32/Borderlands2.exe"],
+            },
+            new GameDefinition
+            {
+                // Yaw 0.0070039 at FOV 90, scaling with FOV (aiming.pro). Settings are in an encoded profile.
+                Name = "Borderlands 3", Engine = Engine.Unreal, YawConstant = 0.007003891051, ApproximateYaw = true,
+                SteamAppId = 397540, InstallDirHints = ["borderlands 3"],
+            },
+            new GameDefinition
+            {
+                // Same as Borderlands 3 (derived from mouse-sensitivity.com outputs).
+                Name = "Tiny Tina's Wonderlands", Engine = Engine.Unreal, YawConstant = 0.007003891051, ApproximateYaw = true,
+                SteamAppId = 1286680, InstallDirHints = ["tiny tina's wonderlands"],
+            },
+            new GameDefinition
+            {
+                // "Sensitivity Scaling" with Horizontal Sensitivity at 40% matches 0.022 (DPI Wizard).
+                Name = "DOOM: The Dark Ages", Engine = Engine.IdTech, YawConstant = srcYaw, ApproximateYaw = true,
+                SteamAppId = 3017860, InstallDirHints = ["doomthedarkages"],
+            },
+            new GameDefinition
+            {
+                // Yaw 0.008333 (aiming.pro / sensgod); single source.
+                Name = "Dying Light 2 Stay Human", Engine = Engine.Other, YawConstant = 0.008333333333, ApproximateYaw = true,
+                SteamAppId = 534380, InstallDirHints = ["dying light 2"],
+            },
+            new GameDefinition
+            {
+                // Yaw 0.25 (aiming.pro, gamingsmart). Stored in the registry.
+                Name = "7 Days to Die", Engine = Engine.Unity, YawConstant = 0.25,
+                SteamAppId = 251570, InstallDirHints = ["7 days to die"],
+            },
+            new GameDefinition
+            {
+                // Yaw 0.5 for the current scale (gamingsmart, xbitlabs). Settings are a binary Steam Cloud file.
+                Name = "Unturned", Engine = Engine.Unity, YawConstant = 0.5, ApproximateYaw = true,
+                SteamAppId = 304930, InstallDirHints = ["unturned"],
+            },
+            new GameDefinition
+            {
+                // Yaw 0.0005 per % (aiming.pro, gamingsmart); stored in the registry.
+                Name = "Valheim", Engine = Engine.Unity, YawConstant = 0.0005, ApproximateYaw = true,
+                SteamAppId = 892970, InstallDirHints = ["valheim"],
+            },
+            new GameDefinition
+            {
+                // 0.008 × LookSens per count (game code); settings are an encrypted save.
+                Name = "Lethal Company", Engine = Engine.Unity, YawConstant = 0.008, ApproximateYaw = true,
+                SteamAppId = 1966720, InstallDirHints = ["lethal company"],
+            },
+            new GameDefinition
+            {
+                // Yaw 0.0175 (aiming.pro, KovaaK's).
+                Name = "BATTALION: Legacy", Engine = Engine.Unreal, YawConstant = 0.0175,
+                SteamAppId = 489940, InstallDirHints = ["battalion"],
+            },
+            new GameDefinition
+            {
+                Name = "Black Squad", Engine = Engine.Unreal, YawConstant = 360.0 / 65536, ApproximateYaw = true,
+                SteamAppId = 550650, InstallDirHints = ["black squad"],
+            },
+            new GameDefinition
+            {
+                Name = "Warface: Clutch", Engine = Engine.CryEngine, YawConstant = 0.00333000333, ApproximateYaw = true,
+                SteamAppId = 291480, InstallDirHints = ["warface"],
+            },
+            new GameDefinition
+            {
+                // Degrees per count = 0.00174505 × (s + 10.027) (aiming.pro).
+                Name = "Darwin Project", Engine = Engine.Unreal, YawConstant = 0.00174504843,
+                SensitivityOffset = 10.0273721343, ApproximateYaw = true,
+                SteamAppId = 544920, InstallDirHints = ["darwin project"],
+            },
+            new GameDefinition
+            {
+                // Yaw 0.4018 (aiming.pro); not a Steam game.
+                Name = "Roblox", Engine = Engine.Other, YawConstant = 0.401785714286, ApproximateYaw = true,
+                InstallDirHints = ["roblox"], MarkerFiles = ["RobloxPlayerBeta.exe"],
+            },
+
+            // ---- Arena shooters and aim trainers (yaws measured by DPI Wizard's calculator) ----
+            new GameDefinition
+            {
+                // id Tech 3: <install>/baseq3/q3config.cfg, seta sensitivity "5" (m_yaw 0.022).
+                Name = "Quake III Arena", Engine = Engine.IdTech, YawConstant = srcYaw,
+                SteamAppId = 2200, InstallDirHints = ["quake 3 arena"], MarkerFiles = ["quake3.exe"],
+                Applier = Writer(@"^seta sensitivity ""(?<v>-?[0-9.]+)""", "seta sensitivity", "0.######",
+                    @"{Install}\baseq3\q3config.cfg"),
+            },
+            new GameDefinition
+            {
+                // Yaw 0.0703 at FOV 90, scaling with FOV. <install>/System/User.ini MouseSensitivity=.
+                Name = "Unreal Tournament 2004", Engine = Engine.Unreal, YawConstant = 0.0703036, ApproximateYaw = true,
+                SteamAppId = 13230, InstallDirHints = ["unreal tournament 2004"], MarkerFiles = ["System/UT2004.exe"],
+                Applier = Writer(@"^MouseSensitivity=(?<v>-?[0-9.]+)", "MouseSensitivity", "0.000000",
+                    @"{Install}\System\User.ini"),
+            },
+            new GameDefinition
+            {
+                // Yaw 0.0506 at FOV 90, scaling with FOV. <install>/System/User.ini MouseSensitivity=.
+                Name = "Unreal Tournament (1999)", Engine = Engine.Unreal, YawConstant = 0.0506187, ApproximateYaw = true,
+                SteamAppId = 13240, InstallDirHints = ["unreal tournament"], MarkerFiles = ["System/UnrealTournament.exe"],
+                Applier = Writer(@"^MouseSensitivity=(?<v>-?[0-9.]+)", "MouseSensitivity", "0.000000",
+                    @"{Install}\System\User.ini"),
+            },
+            new GameDefinition
+            {
+                // id Tech 4 (m_yaw 0.022): <install>/q4base/Quake4Config.cfg, seta sensitivity "5".
+                Name = "Quake 4", Engine = Engine.IdTech, YawConstant = srcYaw,
+                SteamAppId = 2210, InstallDirHints = ["quake 4"], MarkerFiles = ["Quake4.exe"],
+                Applier = Writer(@"^seta sensitivity ""(?<v>-?[0-9.]+)""", "seta sensitivity", "0.######",
+                    @"{Install}\q4base\Quake4Config.cfg"),
+            },
+            new GameDefinition
+            {
+                // id Tech 3: <install>/Main/wolfconfig.cfg (SP) and wolfconfig_mp.cfg (MP).
+                Name = "Return to Castle Wolfenstein", Engine = Engine.IdTech, YawConstant = srcYaw,
+                SteamAppId = 9010, InstallDirHints = ["return to castle wolfenstein"],
+                MarkerFiles = ["WolfSP.exe", "WolfMP.exe"],
+                Applier = Writer(@"^seta sensitivity ""(?<v>-?[0-9.]+)""", "seta sensitivity", "0.######",
+                    @"{Install}\Main\wolfconfig.cfg", @"{Install}\Main\wolfconfig_mp.cfg"),
+            },
+            new GameDefinition
+            {
+                // Freeware, not on Steam. Each mod folder keeps profiles/<name>/etconfig.cfg; ET: Legacy
+                // keeps them under Documents/ETLegacy.
+                Name = "Wolfenstein: Enemy Territory", Engine = Engine.IdTech, YawConstant = srcYaw,
+                InstallDirHints = ["enemy territory", "etlegacy"], MarkerFiles = ["ET.exe", "etl.exe"],
+                Applier = Writer(@"^seta sensitivity ""(?<v>-?[0-9.]+)""", "seta sensitivity", "0.######",
+                    @"{Install}\*\profiles\*\etconfig.cfg",
+                    @"{Documents}\ETLegacy\*\profiles\*\etconfig.cfg"),
+            },
+            new GameDefinition
+            {
+                // UE3 rotation unit, as Rising Storm 2 (CS 1.0 == about 4). ROInput.ini [Engine.PlayerInput].
+                Name = "Red Orchestra 2: Heroes of Stalingrad", Engine = Engine.Unreal, YawConstant = 360.0 / 65536,
+                ApproximateYaw = true,
+                SteamAppId = 35450, InstallDirHints = ["red orchestra 2"], MarkerFiles = ["Binaries/Win32/ROGame.exe"],
+                Applier = Writer(@"^MouseSensitivity=(?<v>-?[0-9.]+)", "MouseSensitivity", "0.000000",
+                    @"{Documents}\My Games\RedOrchestra2*\ROGame\Config\ROInput.ini"),
+            },
+            new GameDefinition
+            {
+                // Spark engine, 0.022° per count (game Lua). options.xml lives in Steam Cloud.
+                Name = "Natural Selection 2", Engine = Engine.Other, YawConstant = srcYaw,
+                SteamAppId = 4920, InstallDirHints = ["natural selection 2"], MarkerFiles = ["x64/ns2.exe"],
+            },
+            new GameDefinition
+            {
+                // Qfusion, yaw 0.022: Documents/My Games/Warfork <version>/basewf/config.cfg, seta sensitivity "3".
+                Name = "Warfork", Engine = Engine.IdTech, YawConstant = srcYaw,
+                SteamAppId = 671610, InstallDirHints = ["fvi"], MarkerFiles = ["warfork_x64.exe"],
+                Applier = Writer(@"^seta sensitivity ""(?<v>-?[0-9.]+)""", "seta sensitivity", "0.######",
+                    @"{Documents}\My Games\Warfork*\basewf\config.cfg"),
+            },
+            new GameDefinition
+            {
+                // Yaw 0.022. Not on Steam.
+                Name = "Xonotic", Engine = Engine.IdTech, YawConstant = srcYaw,
+                InstallDirHints = ["xonotic"], MarkerFiles = ["xonotic.exe", "xonotic-x86_64.exe"],
+            },
+            new GameDefinition
+            {
+                // m_speed, 1e-4 rad per count per unit.
+                Name = "Reflex Arena", Engine = Engine.Other, YawConstant = 0.00572958,
+                SteamAppId = 328070, InstallDirHints = ["reflexfps"], MarkerFiles = ["reflex.exe"],
+            },
+            new GameDefinition
+            {
+                // 1/60° per count (CS2 1.0 == 1.32).
+                Name = "Diabotical Rogue", Engine = Engine.Other, YawConstant = 1.0 / 60.0,
+                SteamAppId = 2805060, InstallDirHints = ["diabotical rogue"],
+            },
+            new GameDefinition
+            {
+                // Yaw 0.022; its Config.cfg is binary.
+                Name = "Aimbeast", Engine = Engine.Unreal, YawConstant = srcYaw,
+                SteamAppId = 1100990, InstallDirHints = ["aimbeast"], MarkerFiles = ["Aimbeast.exe"],
+            },
+            new GameDefinition
+            {
+                // Aimlabs' own sensitivity scale (yaw 0.05); other games' scales can be chosen in-game.
+                Name = "Aimlabs", Engine = Engine.Unity, YawConstant = 0.05, ApproximateYaw = true,
+                SteamAppId = 714010, InstallDirHints = ["aim lab"], MarkerFiles = ["aimlab_tb.exe"],
+            },
+            new GameDefinition
+            {
+                // Browser aim trainer, Overwatch scale (yaw 0.0066).
+                Name = "3D Aim Trainer", Engine = Engine.Other, YawConstant = 0.0066,
+            },
+
+            // ---- GyroWiki calibration only (single measured source) ----
+            GyroOnly("Gunfire Reborn", 1217060, 200),
+            GyroOnly("ULTRAKILL", 1229490, 200),
+            GyroOnly("World War Z", 699130, 111.76),
+            GyroOnly("SUPERHOT", 322500, 12.5),
+            GyroOnly("Sea of Thieves", 1172620, 4.358),
+            GyroOnly("Devil Daggers", 422970, 2.911),
+            GyroOnly("Prodeus", 964800, 8.84),
+            GyroOnly("The Outer Worlds", 578650, 174),
+            GyroOnly("Control", 870780, 300),
         ];
     }
 
     public static GameDefinition? MatchByAppId(int appId)
-        => All.FirstOrDefault(g => g.SteamAppId == appId);
+        => All.FirstOrDefault(g => g.SteamAppId == appId || g.AdditionalSteamAppIds.Contains(appId));
 
+    /// <summary>Games installed inside a launcher app (e.g. the titles in Call of Duty HQ).</summary>
+    public static IReadOnlyList<GameDefinition> HostedBy(int appId)
+        => All.Where(g => g.HostSteamAppId == appId).ToList();
+
+    /// <summary>
+    /// Matches by install-folder hint. The longest matching hint wins, so "call of duty modern warfare
+    /// iii" beats "call of duty modern warfare ii" and "call of duty modern warfare".
+    /// </summary>
     public static GameDefinition? MatchByName(string installDirOrName)
     {
         var s = installDirOrName.ToLowerInvariant();
-        return All.FirstOrDefault(g => g.InstallDirHints.Any(h => s.Contains(h)));
+        return All
+            .SelectMany(g => g.InstallDirHints.Where(h => s.Contains(h)).Select(h => (Game: g, h.Length)))
+            .OrderByDescending(m => m.Length)
+            .Select(m => m.Game)
+            .FirstOrDefault();
     }
 }

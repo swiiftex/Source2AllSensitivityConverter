@@ -10,6 +10,8 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyName>Source2AllSensitivityConverter</AssemblyName>
     <RootNamespace>Source2AllSensitivityConverter</RootNamespace>
+    <!-- Local builds are 0.0.0 (no update check on startup); CI stamps 1.0.<run>, matching the release tag. -->
+    <Version>0.0.0</Version>
   </PropertyGroup>
 
 </Project>

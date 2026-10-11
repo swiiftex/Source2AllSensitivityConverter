@@ -115,8 +115,8 @@ public sealed class GameRowViewModel(DetectedGame game) : ObservableObject
     /// </summary>
     public void Recompute(double? countsPer360)
     {
-        ConvertedSensitivity = countsPer360 is { } c && Game.Definition?.YawConstant is { } yaw
-            ? SensitivityConverter.SensitivityFromCounts(c, yaw)
+        ConvertedSensitivity = countsPer360 is { } c && Game.Definition is { CanConvert: true } def
+            ? def.SensitivityForCounts(c)
             : null;
     }
 }

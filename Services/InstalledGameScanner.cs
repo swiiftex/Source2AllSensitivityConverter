@@ -40,13 +40,16 @@ public sealed class InstalledGameScanner
             try { found = scanner.Scan(); }
             catch { continue; }
 
-            foreach (var game in found)
+            foreach (var game in found.SelectMany(ExpandHosted))
             {
-                // De-dupe by install path (same game can appear in overlapping libraries).
-                var key = Path.GetFullPath(game.InstallPath).TrimEnd('\\');
+                if (game.Definition is null) Enrich(game);
+
+                // De-dupe by install path + matched game: one folder can hold several distinct games
+                // (e.g. every GoldSrc title lives in "Half-Life"), while separate SP/MP app ids for
+                // the same game collapse into a single row.
+                var key = Path.GetFullPath(game.InstallPath).TrimEnd('\\') + "|" + (game.Definition?.Name ?? "");
                 if (!seen.Add(key)) continue;
 
-                Enrich(game);
                 results.Add(game);
             }
         }
@@ -58,17 +61,47 @@ public sealed class InstalledGameScanner
             .ToList();
     }
 
+    /// <summary>
+    /// A launcher install that hosts several games (Call of Duty HQ) becomes one row per hosted game,
+    /// so each gets its own conversion and config writer. Anything else passes through unchanged.
+    /// </summary>
+    private static IEnumerable<DetectedGame> ExpandHosted(DetectedGame game)
+    {
+        var hosted = game.SteamAppId is int id ? GameCatalog.HostedBy(id) : [];
+        if (hosted.Count == 0) return [game];
+
+        // Only filter when the manifest actually reports DLC; otherwise show every hosted game.
+        var installed = game.InstalledDlcAppIds;
+        var shown = installed.Length == 0
+            ? hosted
+            : hosted.Where(d => d.HostDlcAppIds.Length == 0 || d.HostDlcAppIds.Intersect(installed).Any()).ToList();
+        if (shown.Count == 0) shown = hosted;
+
+        return shown.Select(def => new DetectedGame
+        {
+            DisplayName = def.Name,
+            InstallPath = game.InstallPath,
+            Store = game.Store,
+            SteamAppId = game.SteamAppId,
+            InstalledDlcAppIds = installed,
+            Definition = def,
+            DetectedEngine = def.Engine,
+        });
+    }
+
     /// <summary>Attach a catalog definition and/or detected engine to a raw install.</summary>
     private static void Enrich(DetectedGame game)
     {
-        var def = (game.SteamAppId is int id ? GameCatalog.MatchByAppId(id) : null)
-                  ?? GameCatalog.MatchByName(game.DisplayName)
-                  ?? GameCatalog.MatchByName(game.InstallPath);
+        var def = game.SteamAppId is int id ? GameCatalog.MatchByAppId(id) : null;
 
-        // Only accept a name-based match if its marker files actually exist on disk, to avoid
-        // false positives from generic folder names.
-        if (def is not null && game.SteamAppId is null && !MarkersPresent(def, game.InstallPath))
-            def = null;
+        // A name-based match is only accepted if its marker files actually exist on disk, to avoid
+        // false positives from generic folder names (including Steam apps the catalog doesn't list).
+        if (def is null)
+        {
+            def = GameCatalog.MatchByName(game.DisplayName) ?? GameCatalog.MatchByName(game.InstallPath);
+            if (def is not null && !MarkersPresent(def, game.InstallPath))
+                def = null;
+        }
 
         game.Definition = def;
         game.DetectedEngine = def?.Engine is { } e and not Engine.Unknown

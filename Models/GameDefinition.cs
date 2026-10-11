@@ -70,15 +70,29 @@ public sealed class GameDefinition
     /// </summary>
     public double SensitivityOffset { get; init; }
 
-    public bool CanConvert => YawConstant is > 0;
+    /// <summary>
+    /// For games whose turn rate isn't linear in the setting (exponential or piecewise sliders):
+    /// degrees per count for a given setting. Must be paired with <see cref="SettingForDegrees"/>,
+    /// and takes the place of <see cref="YawConstant"/>.
+    /// </summary>
+    public Func<double, double>? DegreesPerCount { get; init; }
+
+    /// <summary>Inverse of <see cref="DegreesPerCount"/>: the setting giving a turn rate.</summary>
+    public Func<double, double>? SettingForDegrees { get; init; }
+
+    public bool CanConvert => YawConstant is > 0 || (DegreesPerCount is not null && SettingForDegrees is not null);
 
     /// <summary>Mouse counts for a full 360° turn at the given in-config sensitivity.</summary>
     public double CountsPer360(double sensitivity)
-        => 360.0 / (YawConstant!.Value * (sensitivity + SensitivityOffset));
+        => DegreesPerCount is { } f
+            ? 360.0 / f(sensitivity)
+            : 360.0 / (YawConstant!.Value * (sensitivity + SensitivityOffset));
 
     /// <summary>The in-config sensitivity that produces the given counts per 360°.</summary>
     public double SensitivityForCounts(double countsPer360)
-        => 360.0 / (countsPer360 * YawConstant!.Value) - SensitivityOffset;
+        => SettingForDegrees is { } g
+            ? g(360.0 / countsPer360)
+            : 360.0 / (countsPer360 * YawConstant!.Value) - SensitivityOffset;
 
     public bool CanAutoApply => Applier is not null;
 }

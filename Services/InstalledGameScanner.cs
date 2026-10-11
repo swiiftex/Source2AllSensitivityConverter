@@ -92,14 +92,16 @@ public sealed class InstalledGameScanner
     /// <summary>Attach a catalog definition and/or detected engine to a raw install.</summary>
     private static void Enrich(DetectedGame game)
     {
-        var def = (game.SteamAppId is int id ? GameCatalog.MatchByAppId(id) : null)
-                  ?? GameCatalog.MatchByName(game.DisplayName)
-                  ?? GameCatalog.MatchByName(game.InstallPath);
+        var def = game.SteamAppId is int id ? GameCatalog.MatchByAppId(id) : null;
 
-        // Only accept a name-based match if its marker files actually exist on disk, to avoid
-        // false positives from generic folder names.
-        if (def is not null && game.SteamAppId is null && !MarkersPresent(def, game.InstallPath))
-            def = null;
+        // A name-based match is only accepted if its marker files actually exist on disk, to avoid
+        // false positives from generic folder names (including Steam apps the catalog doesn't list).
+        if (def is null)
+        {
+            def = GameCatalog.MatchByName(game.DisplayName) ?? GameCatalog.MatchByName(game.InstallPath);
+            if (def is not null && !MarkersPresent(def, game.InstallPath))
+                def = null;
+        }
 
         game.Definition = def;
         game.DetectedEngine = def?.Engine is { } e and not Engine.Unknown

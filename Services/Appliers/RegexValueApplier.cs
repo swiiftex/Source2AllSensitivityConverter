@@ -46,11 +46,13 @@ public sealed class RegexValueApplier : IConfigApplier
             try
             {
                 var text = TextFile.Read(file, out var encoding);
-                var m = _regex.Match(text);
-                if (!m.Success || !m.Groups["v"].Success) continue; // key not in this file
+                // Every match is updated (e.g. separate X and Y keys); back to front keeps indexes valid.
+                var groups = _regex.Matches(text).Select(m => m.Groups["v"]).Where(g => g.Success).ToList();
+                if (groups.Count == 0) continue; // key not in this file
 
-                var g = m.Groups["v"];
-                var updated = text[..g.Index] + value + text[(g.Index + g.Length)..];
+                var updated = text;
+                foreach (var g in groups.OrderByDescending(g => g.Index))
+                    updated = updated[..g.Index] + value + updated[(g.Index + g.Length)..];
 
                 try
                 {

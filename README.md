@@ -117,6 +117,9 @@ converted. `≈` marks a commonly-cited (approximate) conversion factor.
 | DOOM Eternal | id Tech | ✅ Auto-apply |
 | Quake Live | id Tech | ✅ Auto-apply |
 | Quake III Arena | id Tech | ✅ Auto-apply |
+| Quake 4 | id Tech | ✅ Auto-apply |
+| Return to Castle Wolfenstein | id Tech | ✅ Auto-apply |
+| Wolfenstein: Enemy Territory | id Tech | ✅ Auto-apply |
 | Warfork | id Tech | ✅ Auto-apply |
 | Quake (2021) | id Tech | 🧮 Convert-only |
 | Quake II (2023) | id Tech | 🧮 Convert-only ≈ |
@@ -158,6 +161,7 @@ converted. `≈` marks a commonly-cited (approximate) conversion factor.
 | Deep Rock Galactic | Unreal Engine | ✅ Auto-apply ≈ |
 | Unreal Tournament 2004 | Unreal Engine | ✅ Auto-apply ≈ |
 | Unreal Tournament (1999) | Unreal Engine | ✅ Auto-apply ≈ |
+| Red Orchestra 2: Heroes of Stalingrad | Unreal Engine | ✅ Auto-apply ≈ |
 | Halo: The Master Chief Collection | Unreal Engine | 🧮 Convert-only |
 | Fortnite | Unreal Engine | 🧮 Convert-only |
 | Marvel Rivals | Unreal Engine | 🧮 Convert-only |
@@ -229,6 +233,7 @@ converted. `≈` marks a commonly-cited (approximate) conversion factor.
 | PAYDAY 2 | Other | 🧮 Convert-only |
 | Dying Light 2 Stay Human | Other | 🧮 Convert-only ≈ |
 | Roblox | Other | 🧮 Convert-only ≈ |
+| Natural Selection 2 | Other | 🧮 Convert-only |
 | Reflex Arena | Other | 🧮 Convert-only |
 | Diabotical Rogue | Other | 🧮 Convert-only |
 | 3D Aim Trainer | Other | 🧮 Convert-only |

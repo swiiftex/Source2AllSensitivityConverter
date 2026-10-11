@@ -1235,6 +1235,48 @@ public static class GameCatalog
             },
             new GameDefinition
             {
+                // id Tech 4 (m_yaw 0.022): <install>/q4base/Quake4Config.cfg, seta sensitivity "5".
+                Name = "Quake 4", Engine = Engine.IdTech, YawConstant = srcYaw,
+                SteamAppId = 2210, InstallDirHints = ["quake 4"], MarkerFiles = ["Quake4.exe"],
+                Applier = Writer(@"^seta sensitivity ""(?<v>-?[0-9.]+)""", "seta sensitivity", "0.######",
+                    @"{Install}\q4base\Quake4Config.cfg"),
+            },
+            new GameDefinition
+            {
+                // id Tech 3: <install>/Main/wolfconfig.cfg (SP) and wolfconfig_mp.cfg (MP).
+                Name = "Return to Castle Wolfenstein", Engine = Engine.IdTech, YawConstant = srcYaw,
+                SteamAppId = 9010, InstallDirHints = ["return to castle wolfenstein"],
+                MarkerFiles = ["WolfSP.exe", "WolfMP.exe"],
+                Applier = Writer(@"^seta sensitivity ""(?<v>-?[0-9.]+)""", "seta sensitivity", "0.######",
+                    @"{Install}\Main\wolfconfig.cfg", @"{Install}\Main\wolfconfig_mp.cfg"),
+            },
+            new GameDefinition
+            {
+                // Freeware, not on Steam. Each mod folder keeps profiles/<name>/etconfig.cfg; ET: Legacy
+                // keeps them under Documents/ETLegacy.
+                Name = "Wolfenstein: Enemy Territory", Engine = Engine.IdTech, YawConstant = srcYaw,
+                InstallDirHints = ["enemy territory", "etlegacy"], MarkerFiles = ["ET.exe", "etl.exe"],
+                Applier = Writer(@"^seta sensitivity ""(?<v>-?[0-9.]+)""", "seta sensitivity", "0.######",
+                    @"{Install}\*\profiles\*\etconfig.cfg",
+                    @"{Documents}\ETLegacy\*\profiles\*\etconfig.cfg"),
+            },
+            new GameDefinition
+            {
+                // UE3 rotation unit, as Rising Storm 2 (CS 1.0 == about 4). ROInput.ini [Engine.PlayerInput].
+                Name = "Red Orchestra 2: Heroes of Stalingrad", Engine = Engine.Unreal, YawConstant = 360.0 / 65536,
+                ApproximateYaw = true,
+                SteamAppId = 35450, InstallDirHints = ["red orchestra 2"], MarkerFiles = ["Binaries/Win32/ROGame.exe"],
+                Applier = Writer(@"^MouseSensitivity=(?<v>-?[0-9.]+)", "MouseSensitivity", "0.000000",
+                    @"{Documents}\My Games\RedOrchestra2*\ROGame\Config\ROInput.ini"),
+            },
+            new GameDefinition
+            {
+                // Spark engine, 0.022° per count (game Lua). options.xml lives in Steam Cloud.
+                Name = "Natural Selection 2", Engine = Engine.Other, YawConstant = srcYaw,
+                SteamAppId = 4920, InstallDirHints = ["natural selection 2"], MarkerFiles = ["x64/ns2.exe"],
+            },
+            new GameDefinition
+            {
                 // Qfusion, yaw 0.022: Documents/My Games/Warfork <version>/basewf/config.cfg, seta sensitivity "3".
                 Name = "Warfork", Engine = Engine.IdTech, YawConstant = srcYaw,
                 SteamAppId = 671610, InstallDirHints = ["fvi"], MarkerFiles = ["warfork_x64.exe"],

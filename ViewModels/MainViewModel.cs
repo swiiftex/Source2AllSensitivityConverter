@@ -172,11 +172,11 @@ public sealed class MainViewModel : ObservableObject
 
     private void RecomputeConvert()
     {
-        if (TryParse(_convertSensitivityText, out var sens) && sens > 0
-            && _convertFrom is not null && _convertTo is not null)
+        if (TryParse(_convertSensitivityText, out var sens)
+            && _convertFrom is not null && _convertTo is not null
+            && _convertFrom.Game.CountsPer360(sens) is var counts && double.IsFinite(counts) && counts > 0)
         {
-            var counts = SensitivityConverter.CountsPer360(sens, _convertFrom.Yaw);
-            var result = SensitivityConverter.SensitivityFromCounts(counts, _convertTo.Yaw);
+            var result = _convertTo.Game.SensitivityForCounts(counts);
             ConvertOutput = result.ToString("0.######", CultureInfo.InvariantCulture);
             var approx = _convertTo.Game.ApproximateYaw ? "approx. " : "";
             ConvertNote = $"{approx}{counts:0} counts/360  ·  {SensitivityConverter.CmPer360(counts, 800):0.0} cm/360 @ 800 DPI";
@@ -399,9 +399,9 @@ public sealed class MainViewModel : ObservableObject
         foreach (var row in Games.Where(g => g is { IsSelected: true, IsEnabled: true }))
         {
             var def = row.Game.Definition!;
-            if (def.Applier is not { } applier || def.YawConstant is not { } yaw) continue;
+            if (def.Applier is not { } applier || !def.CanConvert) continue;
 
-            var value = SensitivityConverter.SensitivityFromCounts(counts, yaw);
+            var value = def.SensitivityForCounts(counts);
             var result = applier.Apply(row.Game.InstallPath, value);
             if (result.Success) ok++;
             else { fail++; problems.Add($"{row.DisplayName}: {result.Message}"); }
@@ -462,8 +462,11 @@ public sealed class MainViewModel : ObservableObject
             return null;
         }
 
-        if (TryParse(_sourceSensitivityText, out var sens) && sens > 0 && _selectedSource is not null)
-            return SensitivityConverter.CountsPer360(sens, _selectedSource.Yaw);
+        // Some games (Battlefield) accept zero/negative stored values, so validate the resulting turn
+        // distance rather than the raw number.
+        if (TryParse(_sourceSensitivityText, out var sens) && _selectedSource is not null
+            && _selectedSource.Game.CountsPer360(sens) is var counts && double.IsFinite(counts) && counts > 0)
+            return counts;
         return null;
     }
 

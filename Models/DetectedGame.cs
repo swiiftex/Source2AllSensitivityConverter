@@ -14,6 +14,9 @@ public sealed class DetectedGame
 
     public int? SteamAppId { get; init; }
 
+    /// <summary>DLC app ids the store reports as installed for this app (Steam manifests only).</summary>
+    public int[] InstalledDlcAppIds { get; init; } = [];
+
     /// <summary>The catalog entry this install matched, if any.</summary>
     public GameDefinition? Definition { get; set; }
 

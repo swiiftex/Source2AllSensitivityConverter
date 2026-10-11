@@ -16,6 +16,7 @@ public static class EngineNames
         Engine.CallOfDuty => "Call of Duty (IW)",
         Engine.Riot => "Riot",
         Engine.Overwatch => "Overwatch",
+        Engine.CryEngine => "CryEngine",
         Engine.Other => "Other",
         _ => "Unknown",
     };

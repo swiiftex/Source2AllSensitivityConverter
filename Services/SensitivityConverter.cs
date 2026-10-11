@@ -32,7 +32,7 @@ public static class SensitivityConverter
     /// Returns null when the target game has no known linear conversion.
     /// </summary>
     public static double? ConvertFromSource(double sourceSens, GameDefinition target)
-        => target.YawConstant is double yaw and > 0 ? Convert(sourceSens, SourceYaw, yaw) : null;
+        => target.CanConvert ? target.SensitivityForCounts(CountsPer360(sourceSens, SourceYaw)) : null;
 
     /// <summary>
     /// The number of mouse counts required to turn a full 360° at the given sensitivity/yaw.

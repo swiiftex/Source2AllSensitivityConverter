@@ -40,12 +40,6 @@ public static class UserConfigPaths
         Documents("Respawn", "Titanfall2", "local", "settings.cfg"),
         SavedGames("Respawn", "Titanfall2", "local", "settings.cfg"));
 
-    public static string QuakeChampions(string _) =>
-        LocalAppData("id Software", "Quake Champions", "client", "config", "input.cfg");
-
-    public static string DoomEternal(string _) =>
-        SavedGames("id Software", "DOOMEternal", "base", "DOOMEternalConfig.local");
-
     public static string Mordhau(string _) =>
         LocalAppData("Mordhau", "Saved", "Config", "WindowsClient", "Input.ini");
 

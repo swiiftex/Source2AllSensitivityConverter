@@ -18,6 +18,7 @@ public enum Engine
     Riot,        // Valorant (custom UE fork, but its own sens model)
     Overwatch,   // Blizzard's custom engine
     Other,       // known game, engine outside the categories above (e.g. Minecraft / LWJGL)
+    CryEngine,   // Hunt: Showdown
 }
 
 /// <summary>

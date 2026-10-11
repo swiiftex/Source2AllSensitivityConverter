@@ -338,6 +338,15 @@ single-file** `win-x64` build (no .NET install needed to run it) and attaches th
 to a GitHub Release tagged `v1.0.<run-number>`. No manual steps — push to `main` and the packaged
 app appears under **Releases**.
 
+### Updates
+
+The build is stamped with the same `1.0.<run-number>` version as its release tag. On startup the app
+asks GitHub for the newest release, and if there is one, an **Update to …** button appears in the
+header (there's also **Check for updates**). Updating downloads the new `.exe`, checks it against
+GitHub's SHA-256, closes the app, swaps the exe in place and opens it again. The `UserData` settings
+folder next to it is untouched. Local builds report themselves as a *Development build* (`0.0.0`)
+and only check when you ask.
+
 ## Ideas for future ease-of-use
 
 Candidate features, roughly in order of value-to-effort:
